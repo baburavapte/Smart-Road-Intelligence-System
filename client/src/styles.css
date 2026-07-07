@@ -1,0 +1,442 @@
+/* ========================================================
+   Smart Road Intelligence & Pothole Detection System
+   Apple-inspired Liquid Glass Theme (Light Mode)
+   Inspired by: macOS, VisionOS, Vercel, & Linear
+   ======================================================== */
+
+:root {
+  /* Colors */
+  --primary: #007AFF;
+  --secondary: #5AC8FA;
+  --success: #30D158;
+  --warning: #FFD60A;
+  --danger: #FF453A;
+  --forecast: #BF5AF2;
+  --text-primary: #1D1D1F;
+  --text-secondary: #6E6E73;
+  --bg-primary: #F5F5F7;
+  --card-surface: rgba(255, 255, 255, 0.68);
+  --border-color: rgba(255, 255, 255, 0.9);
+  --border-tint: rgba(0, 0, 0, 0.08);
+
+  /* Glass Effects */
+  --glass-blur: 28px;
+  --glass-border: 0.5px solid rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 2px 20px rgba(0, 0, 0, 0.04);
+  
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  
+  /* Transitions */
+  --transition: all 0.2s ease;
+  
+  /* Layout variables */
+  --sidebar-width: 68px;
+  --sidebar-width-expanded: 240px;
+}
+
+/* Base Styles */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.45;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Atmospheric Ambient Gradients */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(90, 200, 250, 0.06) 0%, transparent 60%),
+    radial-gradient(circle at 90% 90%, rgba(191, 90, 242, 0.05) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.small-container {
+  max-width: 800px;
+}
+
+/* Typography Classes */
+.page-title {
+  font-family: 'Outfit', 'SF Pro Display', sans-serif;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+}
+
+.section-title {
+  font-family: 'Outfit', 'SF Pro Display', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: var(--text-primary);
+}
+
+.card-title {
+  font-family: 'SF Pro Display', 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+/* Liquid Glass Cards */
+.glass-card {
+  background: var(--card-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  transition: var(--transition);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.06);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  padding: 32px;
+}
+
+/* Inputs & Form Controls */
+.glass-input, .form-input, .form-textarea, .email-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.5);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: var(--transition);
+}
+
+.glass-input:focus, .form-input:focus, .form-textarea:focus, .email-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 20px; /* Pill */
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: scale(1.02);
+  filter: brightness(1.05);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-secondary, .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 20px; /* Pill */
+  color: var(--text-primary);
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: var(--transition);
+  text-decoration: none;
+}
+
+.btn-secondary:hover:not(:disabled), .btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.2);
+  transform: scale(1.02);
+}
+
+.btn-secondary:disabled, .btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Accessibility Focus Ring */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.4) !important;
+}
+
+/* Badges */
+.severity-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.severity-none, .severity-low { background: rgba(48, 209, 88, 0.12); color: #248a3d; border: 0.5px solid rgba(48, 209, 88, 0.2); }
+.severity-medium { background: rgba(255, 214, 10, 0.15); color: #8a6d00; border: 0.5px solid rgba(255, 214, 10, 0.2); }
+.severity-high { background: rgba(255, 159, 10, 0.15); color: #b85c00; border: 0.5px solid rgba(255, 159, 10, 0.2); }
+.severity-critical { background: rgba(255, 69, 58, 0.12); color: #d70015; border: 0.5px solid rgba(255, 69, 58, 0.2); }
+
+/* Animation Presets */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes blurIn {
+  from { filter: blur(4px); opacity: 0; }
+  to { filter: blur(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.97); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-blur-in {
+  animation: blurIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-up {
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Skeleton loader matching light glass cards */
+.skeleton {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.04) 25%, rgba(0, 0, 0, 0.08) 50%, rgba(0, 0, 0, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Page Standard Layout */
+.page-container {
+  min-height: 100vh;
+  padding: 40px 0 80px;
+  position: relative;
+  z-index: 1;
+}
+
+.page-header {
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.page-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-header-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Spacing and General Layout Helpers */
+.flex-row {
+  display: flex;
+  gap: 16px;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Leaflet Overrides for Light Mode Glass Dashboard */
+.leaflet-container {
+  background: #eef2f5 !important;
+  font-family: inherit !important;
+}
+
+.leaflet-bar {
+  border: none !important;
+  box-shadow: var(--glass-shadow) !important;
+}
+
+.leaflet-bar a {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  color: var(--text-primary) !important;
+  border: 0.5px solid rgba(0, 0, 0, 0.08) !important;
+  transition: var(--transition) !important;
+}
+
+.leaflet-bar a:hover {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: var(--primary) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: var(--text-primary) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-radius: 16px !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: none !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+}
+
+.leaflet-popup-close-button {
+  color: var(--text-secondary) !important;
+  padding: 6px 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: var(--primary) !important;
+}
+
+.marker-cluster {
+  background: rgba(0, 122, 255, 0.15) !important;
+  border: 2px solid rgba(0, 122, 255, 0.4) !important;
+}
+
+.marker-cluster div {
+  background: rgba(0, 122, 255, 0.85) !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+.marker-cluster-small {
+  background: rgba(48, 209, 88, 0.15) !important;
+  border-color: rgba(48, 209, 88, 0.4) !important;
+}
+.marker-cluster-small div {
+  background: rgba(48, 209, 88, 0.85) !important;
+}
+
+.marker-cluster-medium {
+  background: rgba(255, 214, 10, 0.18) !important;
+  border-color: rgba(255, 214, 10, 0.4) !important;
+}
+.marker-cluster-medium div {
+  background: rgba(255, 214, 10, 0.85) !important;
+  color: #5c4300 !important;
+}
