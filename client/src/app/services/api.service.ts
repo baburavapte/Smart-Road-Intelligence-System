@@ -191,10 +191,17 @@ export class ApiService {
         return this.http.post<any>(`${this.apiUrl}/citizen/reports`, report);
     }
 
-    getCitizenReports(email?: string, lifecycle?: string, page: number = 1, limit: number = 20): Observable<any> {
+    getCitizenReports(email?: string, lifecycle?: string, page: number = 1, limit: number = 20, extraParams?: any): Observable<any> {
         let params = `page=${page}&limit=${limit}`;
         if (email) params += `&email=${email}`;
         if (lifecycle) params += `&lifecycle=${lifecycle}`;
+        if (extraParams) {
+            Object.keys(extraParams).forEach(k => {
+                if (extraParams[k] != null && extraParams[k] !== '') {
+                    params += `&${k}=${encodeURIComponent(extraParams[k])}`;
+                }
+            });
+        }
         return this.http.get<any>(`${this.apiUrl}/citizen/reports?${params}`);
     }
 
@@ -361,6 +368,22 @@ export class ApiService {
                 return of({ success: false, error: 'OSRM routing service failed.' });
             })
         );
+    }
+
+    // ── User Management (Admin) ────────────────────────────────────
+    getUsers(page: number = 1, limit: number = 20, role?: string, search?: string): Observable<any> {
+        let params: any = { page, limit };
+        if (role) params.role = role;
+        if (search) params.search = search;
+        return this.http.get<any>(`${this.apiUrl}/users`, { params, withCredentials: true });
+    }
+
+    updateUserRole(userId: string, role: string): Observable<any> {
+        return this.http.put<any>(`${this.apiUrl}/users/${userId}/role`, { role }, { withCredentials: true });
+    }
+
+    updateUserActive(userId: string, isActive: boolean): Observable<any> {
+        return this.http.put<any>(`${this.apiUrl}/users/${userId}/active`, { isActive }, { withCredentials: true });
     }
 }
 

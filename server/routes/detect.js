@@ -6,6 +6,7 @@ const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 const Detection = require('../models/Detection');
+const authenticate = require('../middleware/auth');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -366,7 +367,7 @@ router.post('/detections/near-route', async (req, res) => {
  * PATCH /api/detections/:id/status
  * Update the report status of a detection
  */
-router.patch('/detections/:id/status', async (req, res) => {
+router.patch('/detections/:id/status', authenticate, async (req, res) => {
     try {
         const { reportStatus } = req.body;
         const validStatuses = ['reported', 'under_review', 'in_progress', 'fixed'];
@@ -401,7 +402,7 @@ router.patch('/detections/:id/status', async (req, res) => {
  * GET /api/admin/stats
  * Get admin dashboard statistics
  */
-router.get('/admin/stats', async (req, res) => {
+router.get('/admin/stats', authenticate, async (req, res) => {
     try {
         const totalReports = await Detection.countDocuments();
 
@@ -446,7 +447,7 @@ router.get('/admin/stats', async (req, res) => {
  * GET /api/admin/detections
  * Get filtered detections for admin dashboard
  */
-router.get('/admin/detections', async (req, res) => {
+router.get('/admin/detections', authenticate, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -501,7 +502,7 @@ router.get('/admin/detections', async (req, res) => {
  * DELETE /api/detections/:id
  * Delete a detection
  */
-router.delete('/detections/:id', async (req, res) => {
+router.delete('/detections/:id', authenticate, async (req, res) => {
     try {
         const detection = await Detection.findByIdAndDelete(req.params.id);
         if (!detection) {
@@ -511,6 +512,84 @@ router.delete('/detections/:id', async (req, res) => {
     } catch (error) {
         console.error('Delete detection error:', error.message);
         res.status(500).json({ error: 'Failed to delete detection' });
+    }
+});
+
+/**
+ * POST /api/reports/escalate-critical
+ * Escalate open critical reports by boosting priority score.
+ */
+const CitizenReport = require('../models/CitizenReport');
+router.post('/reports/escalate-critical', authenticate, async (req, res) => {
+    try {
+        const openReports = await CitizenReport.find({
+            reportLifecycle: { $nin: ['closed', 'fixed'] }
+        }).populate('detectionId');
+
+        const criticalReports = openReports.filter(r => r.detectionId && r.detectionId.severity === 'critical');
+
+        let count = 0;
+        for (const report of criticalReports) {
+            report.priorityScore = Math.min(1.0, (report.priorityScore || 0.5) + 0.15);
+            await report.save();
+            count++;
+        }
+
+        res.json({ success: true, count });
+    } catch (error) {
+        console.error('Escalate critical reports error:', error.message);
+        res.status(500).json({ error: 'Failed to escalate critical reports' });
+    }
+});
+
+/**
+ * POST /api/reports/bulk-escalate
+ * Escalate multiple reports by boosting their priority scores.
+ */
+router.post('/reports/bulk-escalate', authenticate, async (req, res) => {
+    try {
+        const { reportIds } = req.body;
+        if (!reportIds || !Array.isArray(reportIds)) {
+            return res.status(400).json({ error: 'reportIds array is required' });
+        }
+        let count = 0;
+        for (const id of reportIds) {
+            const report = await CitizenReport.findById(id);
+            if (report) {
+                report.priorityScore = Math.min(1.0, (report.priorityScore || 0.5) + 0.15);
+                await report.save();
+                count++;
+            }
+        }
+        res.json({ success: true, count });
+    } catch (error) {
+        console.error('Bulk escalate error:', error.message);
+        res.status(500).json({ error: 'Failed to bulk escalate' });
+    }
+});
+
+/**
+ * POST /api/reports/bulk-close
+ * Close multiple reports.
+ */
+router.post('/reports/bulk-close', authenticate, async (req, res) => {
+    try {
+        const { reportIds } = req.body;
+        if (!reportIds || !Array.isArray(reportIds)) {
+            return res.status(400).json({ error: 'reportIds array is required' });
+        }
+        let count = 0;
+        for (const id of reportIds) {
+            const report = await CitizenReport.findByIdAndUpdate(id, {
+                reportLifecycle: 'closed',
+                closedAt: new Date()
+            });
+            if (report) count++;
+        }
+        res.json({ success: true, count });
+    } catch (error) {
+        console.error('Bulk close error:', error.message);
+        res.status(500).json({ error: 'Failed to bulk close' });
     }
 });
 

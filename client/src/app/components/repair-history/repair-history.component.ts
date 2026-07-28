@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-repair-history',
@@ -385,7 +386,8 @@ export class RepairHistoryComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -408,6 +410,7 @@ export class RepairHistoryComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
+        this.toast.error('Failed to load repair record');
         console.error('Failed to load repair record:', err);
       }
     });
@@ -421,10 +424,12 @@ export class RepairHistoryComponent implements OnInit {
         this.verifying = false;
         if (res.success) {
           this.record.verifiedByCitizen = true;
+          this.toast.success('Thank you for verifying the fix!');
         }
       },
       error: (err) => {
         this.verifying = false;
+        this.toast.error('Failed to verify repair');
         console.error('Failed to verify repair:', err);
       }
     });

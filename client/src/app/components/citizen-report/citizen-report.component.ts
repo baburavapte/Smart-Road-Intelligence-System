@@ -3,27 +3,31 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
-import { environment } from '../../../environments/environment';
+import { AuthService } from '../../services/auth.service';
+import { ZoneService } from '../../services/zone.service';
+import { CameraCaptureComponent } from '../shared/camera-capture.component';
+import { MapPickerComponent } from '../shared/map-picker.component';
+import { StatusBadgeComponent } from '../shared/status-badge.component';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-citizen-report',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, CameraCaptureComponent, MapPickerComponent, StatusBadgeComponent],
   template: `
-    <div class="page-container">
+    <div class="page-container flex-page">
       <div class="container small-container">
         <!-- Header -->
         <header class="page-header animate-fade-in">
-          <div class="page-header-text text-center">
-            <h1 class="page-title">Submit Citizen Report</h1>
-            <p class="page-header-subtitle">Link your AI detection to an official municipal maintenance request</p>
+          <div class="page-header-text text-center" style="width: 100%;">
+            <h1 class="page-title">Submit Road Report</h1>
+            <p class="page-header-subtitle">Report road distress to the Vadodara Municipal Corporation</p>
           </div>
         </header>
 
-        <!-- Multi-Step Card Wrapper -->
+        <!-- Stepper Indicator -->
         <div class="form-wizard-card glass-panel animate-fade-in-up">
-          <!-- Stepper Indicator -->
-          <nav class="stepper-indicator" aria-label="Submission Steps">
+          <nav class="stepper-indicator" aria-label="Submission Steps" style="margin-bottom: 24px;">
             <div class="step-indicator-item" [class.active]="formStep >= 1" [class.current]="formStep === 1">
               <div class="step-num">1</div>
               <span class="step-label">Location</span>
@@ -31,7 +35,7 @@ import { environment } from '../../../environments/environment';
             <div class="step-line" [class.active]="formStep >= 2"></div>
             <div class="step-indicator-item" [class.active]="formStep >= 2" [class.current]="formStep === 2">
               <div class="step-num">2</div>
-              <span class="step-label">Contact</span>
+              <span class="step-label">Photo</span>
             </div>
             <div class="step-line" [class.active]="formStep >= 3"></div>
             <div class="step-indicator-item" [class.active]="formStep >= 3" [class.current]="formStep === 3">
@@ -47,198 +51,199 @@ import { environment } from '../../../environments/environment';
 
           <!-- Step 1: Location -->
           <div *ngIf="formStep === 1" class="step-content animate-fade-in">
-            <h3 class="step-content-title">Verify Location</h3>
-            <p class="step-content-desc">Ensure the geospatial coordinates correspond to the physical pothole location.</p>
+            <h3 class="step-title">Step 1: Pothole Location</h3>
+            <p class="step-desc">Drag the pin on the map or use GPS to define the pothole location.</p>
+            
+            <app-map-picker (locationPicked)="onLocationPicked($event)"></app-map-picker>
 
-            <div class="location-preview-box glass-card">
-              <div class="maint-icon-square bg-blue-tint">
-                <i class="ti ti-map-pin" aria-hidden="true"></i>
-              </div>
-              <div class="location-details-meta">
-                <span class="location-coords" *ngIf="detection?.location?.coordinates">
-                  {{ detection.location.coordinates[1].toFixed(6) }}° N, {{ detection.location.coordinates[0].toFixed(6) }}° E
-                </span>
-                <span class="location-coords" *ngIf="!detection?.location?.coordinates">
-                  Geotag coordinates not found in upload
-                </span>
-                <span class="location-subtitle">Vadodara Smart City Grid System</span>
-              </div>
+            <div *ngIf="coords" style="margin-top: 12px; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.02); font-weight: 500; font-size: 13px;">
+              <span *ngIf="zone !== 'Unknown'" style="color: var(--color-success); display: flex; align-items: center; gap: 6px;">
+                <i class="ti ti-circle-check-filled"></i> You are in {{ zone }} ({{ zoneLabel }})
+              </span>
+              <span *ngIf="zone === 'Unknown'" style="color: var(--color-danger); display: flex; align-items: center; gap: 6px;">
+                <i class="ti ti-circle-x-filled"></i> Location is outside Vadodara city limits
+              </span>
             </div>
 
-            <div class="action-buttons-wizard">
-              <button class="btn-primary" (click)="setStep(2)" [disabled]="!detection">
-                Next: Contact Details &rarr;
+            <div class="wizard-actions" style="margin-top: 24px;">
+              <button class="btn-primary" (click)="nextStep()" [disabled]="!coords || zone === 'Unknown'">
+                Next: Take Photo <i class="ti ti-arrow-right"></i>
               </button>
-              <a [routerLink]="['/results', detectionId]" class="btn-secondary">Cancel</a>
             </div>
           </div>
 
-          <!-- Step 2: Contact Info -->
+          <!-- Step 2: Photo -->
           <div *ngIf="formStep === 2" class="step-content animate-fade-in">
-            <h3 class="step-content-title">Reporter Info</h3>
-            <p class="step-content-desc">Submit name and contact details (email is required to receive repair timeline updates).</p>
+            <h3 class="step-title">Step 2: Upload or Capture Photo</h3>
+            <p class="step-desc">Upload a picture of the road damage. Desktop users can use webcam; mobile users can open camera directly.</p>
+            
+            <app-camera-capture (imageSelected)="onImageSelected($event)"></app-camera-capture>
 
-            <div class="form-wrapper-wizard">
-              <div class="form-group">
-                <label for="reporterName">Your Name</label>
-                <input
-                  type="text"
-                  id="reporterName"
-                  [(ngModel)]="report.reporterName"
-                  placeholder="Anonymous or Full Name"
-                  class="form-input"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="reporterEmail">Your Email *</label>
-                <input
-                  type="email"
-                  id="reporterEmail"
-                  [(ngModel)]="report.reporterEmail"
-                  placeholder="name@example.com (Required for updates)"
-                  class="form-input"
-                  required
-                  email
-                  #emailCheck="ngModel"
-                />
-                <span class="field-error" *ngIf="emailCheck.touched && !emailCheck.valid">
-                  Please enter a valid email address.
-                </span>
-              </div>
-
-              <div class="form-group">
-                <label for="reporterPhone">Phone Number</label>
-                <input
-                  type="tel"
-                  id="reporterPhone"
-                  [(ngModel)]="report.reporterPhone"
-                  placeholder="Optional contact number"
-                  class="form-input"
-                />
-              </div>
-            </div>
-
-            <div class="action-buttons-wizard">
-              <button class="btn-primary" (click)="setStep(3)" [disabled]="!report.reporterEmail || !emailCheck.valid">
-                Next: Description &rarr;
+            <div class="wizard-actions" style="margin-top: 24px;">
+              <button class="btn-secondary" (click)="prevStep()"><i class="ti ti-arrow-left"></i> Back</button>
+              <button class="btn-primary" (click)="nextStep()" [disabled]="!selectedImageFile">
+                Next: Add Details <i class="ti ti-arrow-right"></i>
               </button>
-              <button class="btn-secondary" (click)="setStep(1)">&larr; Back</button>
             </div>
           </div>
 
-          <!-- Step 3: Details & Photo Preview -->
+          <!-- Step 3: Details -->
           <div *ngIf="formStep === 3" class="step-content animate-fade-in">
-            <h3 class="step-content-title">Provide Details</h3>
-            <p class="step-content-desc">Add a brief description of the road situation or context to aid the maintenance crew.</p>
+            <h3 class="step-title">Step 3: Incident Details</h3>
+            <p class="step-desc">Provide severity estimation and description to help repair crews prioritize.</p>
 
-            <div class="form-wrapper-wizard">
+            <div class="form-grid">
               <div class="form-group">
-                <label for="description">Road Hazard Details</label>
-                <textarea
-                  id="description"
-                  [(ngModel)]="report.description"
-                  placeholder="e.g., Near the main intersection, deep pothole posing traffic hazards during water logging..."
-                  rows="4"
-                  class="form-textarea"
-                ></textarea>
+                <label class="card-label">Estimated Severity</label>
+                <div class="pill-selector">
+                  <button type="button" class="pill-btn" [class.selected]="severity === 'low'" (click)="severity = 'low'">Minor</button>
+                  <button type="button" class="pill-btn" [class.selected]="severity === 'medium'" (click)="severity = 'medium'">Moderate</button>
+                  <button type="button" class="pill-btn" [class.selected]="severity === 'critical'" (click)="severity = 'critical'">Severe</button>
+                </div>
               </div>
 
-              <!-- AI Info Summary -->
-              <div class="form-info-row glass-card" *ngIf="detection">
-                <div class="info-row-item">
-                  <span class="info-row-lbl">Potholes Detected</span>
-                  <span class="info-row-val val-blue">{{ detection.potholeCount }}</span>
+              <div class="form-group">
+                <div class="label-row">
+                  <label for="desc" class="card-label">Description (Optional)</label>
+                  <span class="char-counter" [class.text-danger]="description.length > 280">{{ description.length }}/300</span>
                 </div>
-                <div class="info-row-item">
-                  <span class="info-row-lbl">Severity Grade</span>
-                  <span class="severity-badge-mini" [ngClass]="'severity-' + (detection.severity || 'low')">
-                    {{ detection.severity }}
-                  </span>
+                <textarea id="desc" maxlength="300" [(ngModel)]="description" 
+                          placeholder="Describe the road issue..." class="form-textarea glass-input"></textarea>
+              </div>
+
+              <!-- Reporter Details with Validation -->
+              <div class="form-group">
+                <label class="form-label" for="reporterName">Reporter Name</label>
+                <input type="text" id="reporterName" [(ngModel)]="reporterName"
+                       name="reporterName" #nameInput="ngModel" required
+                       class="form-input" placeholder="Enter your name">
+                <div class="field-error" *ngIf="nameInput.invalid && (nameInput.dirty || nameInput.touched)">
+                  <i class="ti ti-alert-circle"></i> Name is required.
                 </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="reporterEmail">Reporter Email</label>
+                <input type="email" id="reporterEmail" [(ngModel)]="reporterEmail"
+                       name="reporterEmail" #emailInputRef="ngModel" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,4}$"
+                       class="form-input" placeholder="name@example.com">
+                <div class="field-error" *ngIf="emailInputRef.invalid && (emailInputRef.dirty || emailInputRef.touched)">
+                  <i class="ti ti-alert-circle"></i> Enter a valid email address.
+                </div>
+              </div>
+
+              <!-- Notifications checkboxes -->
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="notifyEmail" />
+                  <span>Receive email status alerts (at {{ reporterEmail }})</span>
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-label" title="SMS notifications coming soon" style="opacity: 0.6; cursor: not-allowed; display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" [disabled]="true" [ngModel]="false" />
+                  <span>SMS / WhatsApp (Coming Soon)</span>
+                </label>
               </div>
             </div>
 
-            <div class="action-buttons-wizard">
-              <button class="btn-primary" (click)="setStep(4)">
-                Next: Confirm Report &rarr;
+            <div class="wizard-actions" style="margin-top: 24px;">
+              <button class="btn-secondary" (click)="prevStep()"><i class="ti ti-arrow-left"></i> Back</button>
+              <button class="btn-primary" (click)="nextStep()" [disabled]="!reporterName || emailInputRef.invalid">
+                Next: Confirm Report <i class="ti ti-arrow-right"></i>
               </button>
-              <button class="btn-secondary" (click)="setStep(2)">&larr; Back</button>
             </div>
           </div>
 
-          <!-- Step 4: Confirmation Summary -->
+          <!-- Step 4: Confirm -->
           <div *ngIf="formStep === 4" class="step-content animate-fade-in">
-            <h3 class="step-content-title">Verify Submission</h3>
-            <p class="step-content-desc">Review your municipal report details. Once submitted, it will enter Vadodara's lifecycle queue.</p>
+            <h3 class="step-title">Step 4: Confirm & Submit</h3>
+            <p class="step-desc">Please review your submission details. Once submitted, Vadodara Smart City AI will analyze the pothole.</p>
 
-            <div class="confirm-summary-grid">
-              <!-- Left: Image Preview -->
-              <div class="confirm-preview-img-container glass-card" *ngIf="detection">
-                <img [src]="detection.annotatedImage" alt="AI Pothole analysis preview" class="confirm-img">
+            <div class="summary-card glass-card">
+              <div class="summary-img-row" *ngIf="selectedImagePreview">
+                <img [src]="selectedImagePreview" alt="Pothole preview" class="summary-img" />
               </div>
-
-              <!-- Right: Metadata summary details -->
-              <div class="confirm-details-meta">
-                <div class="confirm-meta-item">
-                  <span class="confirm-lbl">Reporter</span>
-                  <span class="confirm-val">{{ report.reporterName || 'Anonymous' }}</span>
+              <div class="summary-info-rows">
+                <div class="summary-row">
+                  <span class="card-label">Address</span>
+                  <p class="summary-val">{{ address }}</p>
                 </div>
-                <div class="confirm-meta-item">
-                  <span class="confirm-lbl">Email</span>
-                  <span class="confirm-val">{{ report.reporterEmail }}</span>
+                <div class="summary-row-two-col">
+                  <div class="summary-row">
+                    <span class="card-label">Zone</span>
+                    <p class="summary-val">{{ zone }}</p>
+                  </div>
+                  <div class="summary-row">
+                    <span class="card-label">Severity</span>
+                    <div><app-status-badge [status]="severity" type="severity"></app-status-badge></div>
+                  </div>
                 </div>
-                <div class="confirm-meta-item" *ngIf="report.reporterPhone">
-                  <span class="confirm-lbl">Phone</span>
-                  <span class="confirm-val">{{ report.reporterPhone }}</span>
+                <div class="summary-row" *ngIf="description">
+                  <span class="card-label">Description</span>
+                  <p class="summary-val">"{{ description }}"</p>
                 </div>
-                <div class="confirm-meta-item">
-                  <span class="confirm-lbl">Description</span>
-                  <span class="confirm-val val-desc">"{{ report.description || 'No description provided.' }}"</span>
-                </div>
-                <div class="confirm-meta-item" *ngIf="detection?.location?.coordinates">
-                  <span class="confirm-lbl">Location</span>
-                  <span class="confirm-val">{{ detection.location.coordinates[1].toFixed(5) }}, {{ detection.location.coordinates[0].toFixed(5) }}</span>
+                <div class="summary-row" *ngIf="notifyWhatsApp && reporterPhone">
+                  <span class="card-label">WhatsApp Alerts</span>
+                  <p class="summary-val">{{ reporterPhone }}</p>
                 </div>
               </div>
             </div>
 
-            <div class="action-buttons-wizard">
-              <button class="btn-primary" (click)="onSubmit()" [disabled]="submitting">
-                <span *ngIf="submitting" class="spinner-inline"></span>
-                {{ submitting ? 'Submitting...' : 'Submit Official Report' }}
+            <div class="form-group" style="margin: 20px 0;">
+              <label class="checkbox-label" style="font-weight: 500;">
+                <input type="checkbox" [(ngModel)]="termsAccepted" />
+                <span>I confirm that this report contains accurate information regarding a road pothole.</span>
+              </label>
+            </div>
+
+            <div class="error-banner animate-fade-in" *ngIf="submitError" style="margin-bottom: 16px; color: var(--color-danger); font-size: 13px;">
+              <i class="ti ti-alert-triangle"></i> {{ submitError }}
+            </div>
+
+            <div class="wizard-actions">
+              <button class="btn-secondary" (click)="prevStep()" [disabled]="submitting"><i class="ti ti-arrow-left"></i> Back</button>
+              <button class="btn-primary" (click)="submitReport()" [disabled]="!termsAccepted || submitting">
+                {{ submitting ? 'Analyzing & Saving...' : 'Submit Official Report' }}
               </button>
-              <button class="btn-secondary" (click)="setStep(3)" [disabled]="submitting">&larr; Back</button>
             </div>
           </div>
+
+          <!-- Step 5: Success screen -->
+          <div *ngIf="formStep === 5" class="step-content animate-fade-in text-center" style="padding: 40px 0;">
+            <div class="success-icon-wrapper animate-scale-in">
+              <i class="ti ti-circle-check-filled success-icon"></i>
+            </div>
+            <h2 class="section-title" style="margin-top: 20px;">Report Submitted Successfully</h2>
+            <p class="step-desc" style="max-width: 480px; margin: 8px auto 24px;">
+              Pothole report #{{ submittedReportId | slice:0:8 }} is verified. YOLOv8 AI Model confirmed the severity levels.
+            </p>
+            <div class="success-actions" style="display: flex; gap: 12px; justify-content: center;">
+              <a routerLink="/citizen/dashboard" class="btn-primary">Track Repair Status</a>
+              <button class="btn-secondary" (click)="resetForm()">Submit Another</button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .text-center {
-      text-align: center;
+    .flex-page {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
-    .page-header-text {
-      width: 100%;
-      margin-bottom: 8px;
-    }
-
-    /* Stepper Form Wizard Styling */
     .form-wizard-card {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 32px 40px;
+      padding: 32px;
     }
 
-    /* Stepper indicator icons */
     .stepper-indicator {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 36px;
-      padding: 0 4px;
     }
 
     .step-indicator-item {
@@ -246,8 +251,8 @@ import { environment } from '../../../environments/environment';
       flex-direction: column;
       align-items: center;
       gap: 6px;
+      width: 60px;
       position: relative;
-      z-index: 10;
     }
 
     .step-num {
@@ -255,81 +260,74 @@ import { environment } from '../../../environments/environment';
       height: 28px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.05);
-      border: 0.5px solid rgba(0, 0, 0, 0.12);
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-weight: 600;
+      color: var(--color-muted);
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
       transition: var(--transition);
     }
 
+    .step-indicator-item.active .step-num {
+      background: var(--color-primary);
+      color: white;
+    }
+
+    .step-indicator-item.current .step-num {
+      background: var(--color-primary);
+      color: white;
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+    }
+
     .step-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
-      color: var(--text-secondary);
-      transition: var(--transition);
+      color: var(--color-muted);
+      text-transform: uppercase;
+    }
+
+    .step-indicator-item.current .step-label {
+      color: var(--color-primary);
+      font-weight: 600;
     }
 
     .step-line {
       flex: 1;
       height: 2px;
       background: rgba(0, 0, 0, 0.05);
-      margin: 0 8px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       transition: var(--transition);
     }
 
-    /* Active & Current step states */
-    .step-indicator-item.active .step-num {
-      background: rgba(0, 122, 255, 0.08);
-      border-color: var(--primary);
-      color: var(--primary);
-    }
-
-    .step-indicator-item.active .step-label {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-
-    .step-indicator-item.current .step-num {
-      background: var(--primary);
-      color: white;
-      border-color: transparent;
-      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
-    }
-
     .step-line.active {
-      background: var(--primary);
+      background: var(--color-primary);
     }
 
-    /* Stepper Content */
-    .step-content {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .step-content-title {
+    .step-title {
       font-family: 'Outfit', sans-serif;
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 600;
-      color: var(--text-primary);
+      margin: 0 0 4px 0;
     }
 
-    .step-content-desc {
-      font-size: 13.5px;
-      color: var(--text-secondary);
+    .step-desc {
+      font-size: 13px;
+      color: var(--color-muted);
+      margin-bottom: 20px;
       line-height: 1.4;
-      margin-bottom: 8px;
     }
 
-    /* Form specific layouts */
-    .form-wrapper-wizard {
+    .wizard-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .form-grid {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
     }
 
     .form-group {
@@ -338,271 +336,261 @@ import { environment } from '../../../environments/environment';
       gap: 6px;
     }
 
-    .form-group label {
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .field-error {
-      font-size: 11.5px;
-      color: var(--danger);
-      margin-top: 2px;
-      font-weight: 500;
-    }
-
-    /* Location Panel */
-    .location-preview-box {
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: rgba(0, 122, 255, 0.03);
-      border: 0.5px solid rgba(0, 122, 255, 0.12);
-    }
-
-    .maint-icon-square {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-    }
-
-    .bg-blue-tint {
-      background: rgba(0, 122, 255, 0.08);
-      color: var(--primary);
-    }
-
-    .location-details-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .location-coords {
-      font-family: 'Outfit', sans-serif;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .location-subtitle {
-      font-size: 11px;
-      color: var(--text-secondary);
-    }
-
-    .form-info-row {
-      padding: 14px 20px;
+    .label-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+
+    .char-counter {
+      font-size: 11px;
+      color: var(--color-muted);
+    }
+
+    .pill-selector {
+      display: flex;
+      gap: 10px;
+    }
+
+    .pill-btn {
+      padding: 10px 20px;
+      border-radius: 20px;
+      border: 0.5px solid rgba(0,0,0,0.12);
+      background: white;
+      color: var(--color-text);
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .pill-btn:hover {
       background: rgba(0, 0, 0, 0.02);
     }
 
-    .info-row-item {
+    .pill-btn.selected {
+      background: var(--color-primary);
+      color: white;
+      border-color: var(--color-primary);
+      box-shadow: 0 2px 8px rgba(0,122,255,0.15);
+    }
+
+    .checkbox-label {
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      cursor: pointer;
     }
 
-    .info-row-lbl {
-      font-size: 11px;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .checkbox-label input {
+      width: 16px;
+      height: 16px;
     }
 
-    .info-row-val {
-      font-family: 'Outfit', sans-serif;
-      font-size: 16px;
-      font-weight: 600;
-    }
-
-    .val-blue {
-      color: var(--primary);
-    }
-
-    .severity-badge-mini {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      padding: 2px 8px;
-      border-radius: 8px;
-      margin-top: 2px;
-    }
-
-    /* Action triggers */
-    .action-buttons-wizard {
+    .summary-card {
+      padding: 20px;
       display: flex;
-      flex-direction: row-reverse;
-      justify-content: flex-start;
-      gap: 12px;
-      margin-top: 16px;
-    }
-
-    /* Step 4 confirmation details */
-    .confirm-summary-grid {
-      display: grid;
-      grid-template-columns: 1fr 1.2fr;
       gap: 20px;
-      align-items: start;
+      align-items: flex-start;
     }
 
-    .confirm-preview-img-container {
-      width: 100%;
-      height: 180px;
-      border-radius: 14px;
+    @media (max-width: 600px) {
+      .summary-card {
+        flex-direction: column;
+      }
+      .summary-img-row {
+        width: 100% !important;
+        height: 160px !important;
+      }
+    }
+
+    .summary-img-row {
+      width: 180px;
+      height: 140px;
+      border-radius: 12px;
       overflow: hidden;
-      border: 0.5px solid rgba(0, 0, 0, 0.08);
+      flex-shrink: 0;
     }
 
-    .confirm-img {
+    .summary-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    .confirm-details-meta {
+    .summary-info-rows {
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 12px;
+      width: 100%;
     }
 
-    .confirm-meta-item {
+    .summary-row {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      border-bottom: 0.5px solid rgba(0, 0, 0, 0.05);
-      padding-bottom: 6px;
-    }
-    .confirm-meta-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
+      gap: 4px;
     }
 
-    .confirm-lbl {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .summary-row-two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
     }
 
-    .confirm-val {
-      font-size: 13.5px;
+    .summary-val {
+      font-size: 13px;
       font-weight: 500;
-      color: var(--text-primary);
+      color: var(--color-text);
     }
 
-    .val-desc {
-      font-style: italic;
-      color: var(--text-primary);
-      line-height: 1.3;
-    }
-
-    .spinner-inline {
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-right-color: white;
+    .success-icon-wrapper {
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: inline-block;
+      background: rgba(48, 209, 88, 0.1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    @media (max-width: 600px) {
-      .form-wizard-card {
-        padding: 24px 20px;
-      }
-      .confirm-summary-grid {
-        grid-template-columns: 1fr;
-      }
-      .confirm-preview-img-container {
-        height: 220px;
-      }
+    .success-icon {
+      font-size: 48px;
+      color: var(--color-success);
     }
   `]
 })
 export class CitizenReportComponent implements OnInit {
-  detectionId: string = '';
-  detection: any = null;
-  submitting: boolean = false;
-  formStep: number = 1; // Wizard active step
+  formStep = 1;
+  submitting = false;
+  submitError = '';
 
-  report = {
-    reporterName: '',
-    reporterEmail: '',
-    reporterPhone: '',
-    description: ''
-  };
+  // Step 1: Location picker coordinates
+  coords: { lat: number; lng: number } | null = null;
+  address = '';
+  zone = 'Zone A';
+  zoneLabel = 'North-West';
+
+  // Step 2: Camera files
+  selectedImageFile: File | null = null;
+  selectedImagePreview = '';
+
+  // Step 3: Details
+  severity = 'medium';
+  description = '';
+  notifyEmail = true;
+  notifyWhatsApp = false;
+  reporterName = '';
+  reporterEmail = '';
+  reporterPhone = '';
+  termsAccepted = false;
+
+  submittedReportId = '';
 
   constructor(
-    private route: ActivatedRoute,
+    private apiService: ApiService,
+    private authService: AuthService,
+    private zoneService: ZoneService,
     private router: Router,
-    private apiService: ApiService
+    private route: ActivatedRoute,
+    private toast: ToastService
   ) {}
 
-  ngOnInit(): void {
-    this.route.paramMap.subscribe(params => {
-      this.detectionId = params.get('detectionId') || '';
-      if (this.detectionId) {
-        this.loadDetection();
-      } else {
-        this.router.navigate(['/detect']);
-      }
+  ngOnInit() {
+    this.reporterName = this.authService.getUserName() || 'Anonymous';
+    this.reporterEmail = this.authService.getUserEmail() || '';
+  }
+
+  onLocationPicked(event: { lat: number; lng: number; address: string; zone: string }) {
+    this.coords = { lat: event.lat, lng: event.lng };
+    this.address = event.address;
+    this.zoneService.detectZone(event.lat, event.lng).subscribe(result => {
+      this.zone = result.zone;
+      this.zoneLabel = result.label;
     });
   }
 
-  loadDetection(): void {
-    this.apiService.getDetection(this.detectionId).subscribe({
-      next: (res) => {
-        if (res.success && res.detection) {
-          this.detection = res.detection;
-          const base = environment.flaskUrl;
-          if (this.detection.annotatedImage && !this.detection.annotatedImage.startsWith('http')) {
-            this.detection.annotatedImage = `${base}/results/${this.detection.annotatedImage}`;
-          }
-        }
-      },
-      error: (err) => {
-        console.error('Failed to load detection details:', err);
-        this.router.navigate(['/detect']);
-      }
-    });
+  onImageSelected(event: { file: File; previewUrl: string }) {
+    this.selectedImageFile = event.file;
+    this.selectedImagePreview = event.previewUrl;
   }
 
-  // Set the wizard step
-  setStep(step: number): void {
-    if (step < 1 || step > 4) return;
+  nextStep() {
+    if (this.formStep < 4) {
+      this.formStep++;
+    }
+  }
+
+  prevStep() {
+    if (this.formStep > 1) {
+      this.formStep--;
+    }
+  }
+
+  setStep(step: number) {
     this.formStep = step;
   }
 
-  onSubmit(): void {
+  submitReport() {
+    if (!this.selectedImageFile || !this.coords || !this.termsAccepted) return;
+
     this.submitting = true;
-    this.apiService.submitCitizenReport({
-      detectionId: this.detectionId,
-      ...this.report
-    }).subscribe({
-      next: (res) => {
-        this.submitting = false;
-        if (res.success) {
-          if (this.report.reporterEmail) {
-            localStorage.setItem('citizenEmail', this.report.reporterEmail);
-          }
-          this.router.navigate(['/citizen-dashboard']);
+    this.submitError = '';
+
+    // Step 1: Upload to YOLOv8 inference detection endpoint
+    this.apiService.detectPotholes(this.selectedImageFile, this.coords.lat, this.coords.lng).subscribe({
+      next: (detRes) => {
+        if (detRes.success && detRes.detection) {
+          const detectionId = detRes.detection.id;
+
+          // Step 2: Create official CitizenReport linked to that detection
+          const reportPayload = {
+            detectionId,
+            reporterName: this.reporterName,
+            reporterEmail: this.notifyEmail ? this.reporterEmail : '',
+            reporterPhone: this.notifyWhatsApp ? this.reporterPhone : '',
+            description: this.description
+          };
+
+          this.apiService.submitCitizenReport(reportPayload).subscribe({
+            next: (repRes) => {
+              this.submitting = false;
+              if (repRes.success && repRes.report) {
+                this.submittedReportId = repRes.report._id;
+                this.toast.success('Pothole report submitted successfully');
+                this.formStep = 5; // Success step
+              } else {
+                this.submitError = 'Failed to create official report record.';
+              }
+            },
+            error: (err) => {
+              this.submitting = false;
+              this.submitError = err.error?.error || 'Failed to submit citizen report.';
+            }
+          });
+        } else {
+          this.submitting = false;
+          this.submitError = 'AI verification service upload failed.';
         }
       },
       error: (err) => {
         this.submitting = false;
-        console.error('Failed to submit citizen report:', err);
+        this.submitError = err.error?.error || 'Failed to analyze photo with AI.';
       }
     });
+  }
+
+  resetForm() {
+    this.formStep = 1;
+    this.coords = null;
+    this.address = '';
+    this.selectedImageFile = null;
+    this.selectedImagePreview = '';
+    this.description = '';
+    this.notifyWhatsApp = false;
+    this.reporterPhone = '';
+    this.termsAccepted = false;
+    this.submittedReportId = '';
   }
 }

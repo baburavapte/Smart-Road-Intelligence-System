@@ -6,6 +6,7 @@ const path = require('path');
 const RepairRecord = require('../models/RepairRecord');
 const CitizenReport = require('../models/CitizenReport');
 const RoadHealth = require('../models/RoadHealth');
+const authenticate = require('../middleware/auth');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -39,7 +40,7 @@ const FLASK_URL = process.env.FLASK_URL || 'http://localhost:5001';
  * POST /api/repair
  * Upload repair proof (before & after images + metadata)
  */
-router.post('/', upload.fields([
+router.post('/', authenticate, upload.fields([
     { name: 'beforeImage', maxCount: 1 },
     { name: 'afterImage', maxCount: 1 }
 ]), async (req, res) => {
@@ -87,7 +88,7 @@ router.post('/', upload.fields([
  * GET /api/repair
  * Get all repair records
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
     try {
         const records = await RepairRecord.find()
             .sort({ createdAt: -1 })
@@ -122,7 +123,7 @@ router.get('/', async (req, res) => {
  * GET /api/repair/by-report/:reportId
  * Get repair record by citizen report ID
  */
-router.get('/by-report/:reportId', async (req, res) => {
+router.get('/by-report/:reportId', authenticate, async (req, res) => {
     try {
         const record = await RepairRecord.findOne({ citizenReportId: req.params.reportId }).lean();
         if (!record) {

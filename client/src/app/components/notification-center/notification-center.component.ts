@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
+import { SkeletonComponent } from '../shared/skeleton.component';
+import { ErrorCardComponent } from '../shared/error-card.component';
 
 interface Notification {
   id: string;
@@ -18,442 +21,358 @@ interface Notification {
 @Component({
   selector: 'app-notification-center',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, SkeletonComponent, ErrorCardComponent],
   template: `
-    <div class="page-container">
+    <div class="page-container flex-page">
       <div class="container small-container">
+        
         <!-- Header -->
         <header class="page-header animate-fade-in">
-          <div class="page-header-text text-center">
-            <h1 class="page-title">Notification Center</h1>
-            <p class="page-header-subtitle">Stay informed about updates and lifecycle milestones of your reported potholes</p>
+          <div class="page-header-text">
+            <h1 class="page-title">Notifications</h1>
+            <p class="page-header-subtitle">Milestones and repair progress updates for your active reports.</p>
+          </div>
+          <div class="page-header-actions" *ngIf="notifications.length > 0">
+            <button class="btn-secondary btn-sm" (click)="markAllAsRead()">Mark All Read</button>
           </div>
         </header>
 
-        <!-- Email Configuration -->
-        <section class="email-config-card glass-card animate-fade-in-up" style="animation-delay: 0.05s" aria-label="Configure notification email">
-          <div class="config-form">
-            <div class="input-wrapper">
-              <span class="input-icon" aria-hidden="true">
-                <i class="ti ti-mail"></i>
-              </span>
-              <input
-                type="email"
-                [(ngModel)]="emailInput"
-                placeholder="Enter email to check notifications"
-                class="email-input"
-                (keyup.enter)="loadNotifications()"
-                aria-label="Email address"
-              />
-            </div>
-            <button class="btn-primary btn-config" (click)="loadNotifications()">
-              Check Updates
-            </button>
+        <!-- Dynamic email input if session not active -->
+        <section class="glass-card config-card animate-fade-in-up" *ngIf="!hasActiveSession">
+          <h3 class="card-title" style="margin-bottom: 8px;">Find Pothole Alerts</h3>
+          <div class="lookup-row">
+            <input type="email" [(ngModel)]="emailInput" placeholder="Enter your email address..." class="glass-input" />
+            <button class="btn-primary" (click)="loadNotifications()">Search</button>
           </div>
         </section>
 
-        <!-- Notifications Tray Card (Only shown if email configured) -->
-        <div class="notifications-tray-wrapper animate-fade-in-up" style="animation-delay: 0.1s" *ngIf="emailInput">
-          <!-- Tray Header Actions -->
-          <div class="tray-actions-row">
-            <!-- Filter Tabs -->
-            <nav class="tray-filter-tabs" aria-label="Filter notifications">
-              <button [class.active]="filterMode === 'all'" (click)="setFilter('all')">All</button>
-              <button [class.active]="filterMode === 'unread'" (click)="setFilter('unread')">Unread</button>
-              <button [class.active]="filterMode === 'critical'" (click)="setFilter('critical')">Critical</button>
-              <button [class.active]="filterMode === 'system'" (click)="setFilter('system')">System</button>
-            </nav>
-
-            <button class="btn-ghost btn-sm" (click)="markAllAsRead()" *ngIf="unreadCount > 0">
-              Mark all read
-            </button>
+        <!-- Apple notification list layout -->
+        <main class="notifications-layout animate-fade-in-up" style="animation-delay: 0.05s" *ngIf="emailInput">
+          
+          <!-- Filter Tabs -->
+          <div class="filter-tabs-row">
+            <div class="tab-list">
+              <button [class.active]="activeTab === 'all'" (click)="setTab('all')">All</button>
+              <button [class.active]="activeTab === 'unread'" (click)="setTab('unread')">Unread</button>
+              <button [class.active]="activeTab === 'system'" (click)="setTab('system')">Alerts</button>
+            </div>
+            <span class="unread-badge-total" *ngIf="unreadCount > 0">{{ unreadCount }} Unread</span>
           </div>
 
-          <!-- Loading State -->
-          <div class="loading-state" *ngIf="loading">
-            <span class="spinner" aria-hidden="true"></span>
-            <p>Fetching notifications...</p>
+          <!-- Loading state -->
+          <div *ngIf="loading" style="display: flex; flex-direction: column; gap: 12px;">
+            <app-skeleton type="row"></app-skeleton>
+            <app-skeleton type="row"></app-skeleton>
+            <app-skeleton type="row"></app-skeleton>
+            <app-skeleton type="row"></app-skeleton>
+            <app-skeleton type="row"></app-skeleton>
           </div>
 
-          <!-- Empty State -->
-          <div class="empty-state glass-card" *ngIf="!loading && getFilteredNotifications().length === 0">
-            <div class="empty-icon" aria-hidden="true">🔔</div>
-            <h3>You're All Caught Up</h3>
-            <p>No notifications found in this category for <strong>{{ searchedEmail }}</strong>.</p>
+          <!-- Error State -->
+          <app-error-card
+            *ngIf="!loading && error"
+            [title]="'Failed to load'"
+            [message]="errorMessage"
+            (retry)="loadNotifications()">
+          </app-error-card>
+
+          <!-- Empty list state -->
+          <div class="empty-state glass-card text-center" *ngIf="!loading && !error && filteredNotifications.length === 0">
+            <i class="ti ti-bell-off" style="font-size: 36px; color: var(--color-muted); margin-bottom: 8px; display: inline-block;"></i>
+            <h3>No notifications</h3>
+            <p class="meta">You are all caught up. There are no new alerts.</p>
           </div>
 
-          <!-- Notification Items List -->
-          <section class="notifications-list" *ngIf="!loading && getFilteredNotifications().length > 0" aria-label="Notifications list">
-            <div
-              class="notification-item glass-card"
-              *ngFor="let notif of getFilteredNotifications()"
-              [class.unread-item]="!notif.read"
-              [class.read-item]="notif.read"
-              (click)="markAsRead(notif)"
-            >
-              <!-- Unread status dot on right -->
-              <div class="notif-status-dot" *ngIf="!notif.read" aria-label="Unread"></div>
+          <!-- Active notifications list -->
+          <div class="notifications-list" *ngIf="!loading && !error && filteredNotifications.length > 0">
+            <div class="notification-item-card glass-card animate-scale-in" 
+                 *ngFor="let notif of filteredNotifications"
+                 [class.unread-item]="!notif.read"
+                 (click)="markAsRead(notif)">
               
-              <!-- Colored Icon Square box -->
-              <div class="notif-icon-box" [ngClass]="notif.type" aria-hidden="true">
-                {{ getIconForType(notif.type) }}
-              </div>
+              <!-- Unread blue dot -->
+              <div class="unread-indicator-dot" *ngIf="!notif.read"></div>
 
-              <!-- Main text detail -->
-              <div class="notif-content">
+              <div class="notif-body">
                 <div class="notif-header">
-                  <h4 class="notif-title">{{ notif.title }}</h4>
-                  <span class="notif-time">{{ formatTimeAgo(notif.createdAt) }}</span>
+                  <span class="notif-type-icon" [ngClass]="notif.type">
+                    <i class="ti" [ngClass]="getIconForType(notif.type)"></i>
+                  </span>
+                  <div class="notif-title-meta">
+                    <h4>{{ notif.title }}</h4>
+                    <span class="notif-time">{{ notif.createdAt | date:'medium' }}</span>
+                  </div>
                 </div>
-                <p class="notif-msg">{{ notif.message }}</p>
-                <div class="notif-meta-actions">
-                  <a [routerLink]="['/citizen-dashboard']" class="meta-link">Track Report &rarr;</a>
+                <p class="notif-desc">{{ notif.message }}</p>
+                <div class="notif-actions" style="margin-top: 10px;" *ngIf="notif.reportId">
+                  <a [routerLink]="['/citizen/dashboard']" class="btn-ghost btn-sm" style="font-size: 11px; padding: 4px 10px;">
+                    Track in Workspace &rarr;
+                  </a>
                 </div>
               </div>
             </div>
-          </section>
-        </div>
+          </div>
+
+        </main>
       </div>
     </div>
   `,
   styles: [`
-    .text-center {
-      text-align: center;
-    }
-
-    .small-container {
-      max-width: 520px !important;
-    }
-
-    .email-config-card {
-      padding: 16px;
-      margin-bottom: 20px;
-    }
-
-    .config-form {
+    .flex-page {
       display: flex;
-      gap: 12px;
+      flex-direction: column;
+      gap: 20px;
+      padding-bottom: 80px;
     }
 
-    .input-wrapper {
-      position: relative;
-      flex: 1;
+    .config-card {
+      padding: 20px;
     }
 
-    .input-icon {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 16px;
-      color: var(--text-secondary);
+    .lookup-row {
       display: flex;
+      gap: 10px;
     }
 
-    .email-input {
-      padding-left: 40px;
-      border-radius: 20px;
-    }
-
-    .btn-config {
-      flex-shrink: 0;
-    }
-
-    /* Notification Tray Card */
-    .notifications-tray-wrapper {
+    .notifications-layout {
       display: flex;
       flex-direction: column;
       gap: 16px;
     }
 
-    .tray-actions-row {
+    .filter-tabs-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0 4px;
+      border-bottom: 0.5px solid rgba(0,0,0,0.05);
+      padding-bottom: 8px;
     }
 
-    /* Segmented filter tabs */
-    .tray-filter-tabs {
+    .tab-list {
       display: flex;
-      background: rgba(0, 0, 0, 0.04);
-      padding: 2px;
-      border-radius: 14px;
+      gap: 8px;
     }
 
-    .tray-filter-tabs button {
+    .tab-list button {
       border: none;
       background: transparent;
-      padding: 5px 12px;
-      border-radius: 12px;
-      font-family: inherit;
-      font-size: 11.5px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: var(--transition);
-    }
-
-    .tray-filter-tabs button.active {
-      background: white;
-      color: var(--primary);
-      box-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.04);
-      font-weight: 600;
-    }
-
-    /* Notifications List */
-    .notifications-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .notification-item {
-      display: flex;
-      padding: 16px;
-      gap: 14px;
-      position: relative;
-      cursor: pointer;
-      border-radius: 16px !important;
-      transition: var(--transition);
-      border-left: 3.5px solid transparent !important;
-    }
-
-    .notification-item:hover {
-      transform: scale(1.01);
-      background: rgba(255, 255, 255, 0.85);
-      border-color: rgba(0, 0, 0, 0.04);
-    }
-
-    .unread-item {
-      border-left-color: var(--primary) !important;
-      background: white;
-    }
-
-    .read-item {
-      opacity: 0.8;
-      background: rgba(255, 255, 255, 0.5);
-    }
-
-    .notif-status-dot {
-      position: absolute;
-      top: 18px;
-      right: 18px;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--primary);
-    }
-
-    /* Colored icon square */
-    .notif-icon-box {
-      width: 36px;
-      height: 36px;
+      padding: 6px 12px;
       border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-
-    /* Mapping category backgrounds */
-    .notif-icon-box.report_submitted { background: rgba(133, 133, 139, 0.08); color: #85858b; }
-    .notif-icon-box.report_verified { background: rgba(0, 122, 255, 0.08); color: var(--primary); }
-    .notif-icon-box.team_assigned { background: rgba(88, 86, 214, 0.08); color: #5856d6; }
-    .notif-icon-box.repair_started { background: rgba(255, 159, 10, 0.08); color: #ff9f0a; }
-    .notif-icon-box.repair_completed { background: rgba(48, 209, 88, 0.08); color: var(--success); }
-    .notif-icon-box.report_closed { background: rgba(0, 0, 0, 0.04); color: var(--text-secondary); }
-
-    .notif-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .notif-header {
-      display: flex;
-      justify-content: space-between;
-      padding-right: 16px;
-      align-items: baseline;
-    }
-
-    .notif-title {
-      font-size: 13.5px;
+      font-size: 12px;
       font-weight: 600;
-      color: var(--text-primary);
+      color: var(--color-muted);
+      cursor: pointer;
+      transition: var(--transition);
     }
 
-    .notif-time {
-      font-size: 10px;
-      color: var(--text-secondary);
+    .tab-list button.active {
+      background: var(--color-primary);
+      color: white;
     }
 
-    .notif-msg {
-      font-size: 12.5px;
-      color: var(--text-secondary);
-      line-height: 1.4;
-    }
-
-    .notif-meta-actions {
-      margin-top: 4px;
-    }
-
-    .meta-link {
+    .unread-badge-total {
       font-size: 11px;
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .meta-link:hover {
-      text-decoration: underline;
+      font-weight: 700;
+      color: var(--color-danger);
+      background: rgba(255, 69, 58, 0.1);
+      padding: 3px 8px;
+      border-radius: 8px;
     }
 
     .loading-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px;
-      gap: 12px;
+      padding: 40px;
     }
 
     .spinner {
-      width: 30px;
-      height: 30px;
-      border: 3px solid rgba(0, 0, 0, 0.05);
-      border-top-color: var(--primary);
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(0,0,0,0.05);
+      border-top-color: var(--color-primary);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
+      display: inline-block;
+      margin-bottom: 12px;
     }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    .notifications-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .notification-item-card {
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .notification-item-card:hover {
+      transform: scale(1.005);
+    }
+
+    .unread-item {
+      border-left: 3px solid var(--color-primary);
+      background: rgba(0, 122, 255, 0.02);
+    }
+
+    .unread-indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+
+    .notif-body {
+      flex: 1;
+    }
+
+    .notif-header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .notif-type-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    
+    .notif-type-icon.critical { background: rgba(255, 69, 58, 0.1); color: var(--color-danger); }
+    .notif-type-icon.system { background: rgba(255, 214, 10, 0.15); color: #b8860b; }
+    .notif-type-icon.info { background: rgba(0, 122, 255, 0.1); color: var(--color-primary); }
+
+    .notif-title-meta h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .notif-time {
+      font-size: 10px;
+      color: var(--color-muted);
+    }
+
+    .notif-desc {
+      font-size: 12px;
+      color: var(--color-muted);
+      line-height: 1.45;
+    }
   `]
 })
 export class NotificationCenterComponent implements OnInit {
-  emailInput: string = '';
-  searchedEmail: string = '';
+  emailInput = '';
+  hasActiveSession = false;
+  loading = false;
+  error = false;
+  errorMessage = 'Failed to load notifications. Please try again.';
+  activeTab = 'all';
+
   notifications: Notification[] = [];
-  unreadCount: number = 0;
-  loading: boolean = false;
-  filterMode: 'all' | 'unread' | 'critical' | 'system' = 'all'; // Local filter tab state
+  filteredNotifications: Notification[] = [];
+  unreadCount = 0;
 
-  constructor(private apiService: ApiService) {}
+  constructor(private apiService: ApiService, private authService: AuthService) {}
 
-  ngOnInit(): void {
-    const savedEmail = localStorage.getItem('citizenEmail');
-    if (savedEmail) {
-      this.emailInput = savedEmail;
+  ngOnInit() {
+    const sessionEmail = this.authService.getUserEmail();
+    if (sessionEmail) {
+      this.emailInput = sessionEmail;
+      this.hasActiveSession = true;
       this.loadNotifications();
     }
   }
 
-  loadNotifications(): void {
-    if (!this.emailInput.trim()) return;
-
+  loadNotifications() {
+    if (!this.emailInput) return;
     this.loading = true;
-    this.searchedEmail = this.emailInput.trim();
-    localStorage.setItem('citizenEmail', this.searchedEmail);
-
-    this.apiService.getNotifications(this.searchedEmail).subscribe({
+    this.error = false;
+    this.apiService.getNotifications(this.emailInput).subscribe({
       next: (res) => {
         this.loading = false;
-        if (res.success) {
-          this.notifications = res.data;
+        if (res.success && res.data) {
+          this.notifications = res.data.map((n: any) => ({
+            id: n._id,
+            recipientEmail: n.recipientEmail,
+            reportId: n.reportId,
+            type: n.type || 'info',
+            title: n.title || 'Report Status Update',
+            message: n.message,
+            read: n.read,
+            createdAt: n.createdAt
+          }));
           this.calculateUnread();
+          this.applyFilters();
         }
       },
       error: (err) => {
         this.loading = false;
-        console.error('Failed to load notifications:', err);
+        this.error = true;
+        this.errorMessage = err.status === 0
+          ? 'Server unreachable — check your connection'
+          : err.status === 403
+          ? 'You do not have permission to view this'
+          : 'Failed to load notifications. Please try again.';
+        this.notifications = [];
+        this.filteredNotifications = [];
       }
     });
   }
 
-  calculateUnread(): void {
+  setTab(tab: string) {
+    this.activeTab = tab;
+    this.applyFilters();
+  }
+
+  private applyFilters() {
+    this.filteredNotifications = this.notifications.filter(n => {
+      if (this.activeTab === 'unread') return !n.read;
+      if (this.activeTab === 'system') return n.type === 'critical' || n.type === 'system';
+      return true;
+    });
+  }
+
+  private calculateUnread() {
     this.unreadCount = this.notifications.filter(n => !n.read).length;
   }
 
-  setFilter(mode: 'all' | 'unread' | 'critical' | 'system'): void {
-    this.filterMode = mode;
-  }
-
-  getFilteredNotifications(): Notification[] {
-    if (this.filterMode === 'unread') {
-      return this.notifications.filter(n => !n.read);
-    }
-    if (this.filterMode === 'critical') {
-      // Filter by verification actions or repair completion reports
-      return this.notifications.filter(n => n.type === 'team_assigned' || n.type === 'repair_completed' || n.message.toLowerCase().includes('critical') || n.title.toLowerCase().includes('critical'));
-    }
-    if (this.filterMode === 'system') {
-      // Filter by database/municipal closed cases
-      return this.notifications.filter(n => n.type === 'report_closed' || n.type === 'report_verified');
-    }
-    return this.notifications;
-  }
-
-  markAsRead(notif: Notification): void {
-    if (notif.read) return;
-
-    this.apiService.markNotificationAsRead(notif.id).subscribe({
-      next: (res) => {
-        if (res.success) {
-          notif.read = true;
-          this.calculateUnread();
-        }
-      },
-      error: (err) => {
-        console.error('Failed to mark notification read:', err);
-      }
-    });
-  }
-
-  markAllAsRead(): void {
-    if (!this.searchedEmail) return;
-
-    this.apiService.markAllNotificationsAsRead(this.searchedEmail).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.notifications.forEach(n => n.read = true);
-          this.calculateUnread();
-        }
-      },
-      error: (err) => {
-        console.error('Failed to mark all notifications read:', err);
-      }
-    });
-  }
-
   getIconForType(type: string): string {
-    const map: any = {
-      report_submitted: '📝',
-      report_verified: '🔍',
-      team_assigned: '👥',
-      repair_started: '🛠️',
-      repair_completed: '✅',
-      report_closed: '📁'
-    };
-    return map[type] || '🔔';
+    if (type === 'critical') return 'ti-alert-triangle';
+    if (type === 'system') return 'ti-settings';
+    return 'ti-info-circle';
   }
 
-  formatTimeAgo(dateStr: string): string {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  markAsRead(notif: Notification) {
+    if (notif.read) return;
+    this.apiService.markNotificationAsRead(notif.id).subscribe(() => {
+      notif.read = true;
+      this.calculateUnread();
+      this.applyFilters();
+    });
+  }
 
-    if (seconds < 60) return 'just now';
-    
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+  markAllAsRead() {
+    if (!this.emailInput) return;
+    this.apiService.markAllNotificationsAsRead(this.emailInput).subscribe(() => {
+      this.notifications.forEach(n => n.read = true);
+      this.calculateUnread();
+      this.applyFilters();
+    });
   }
 }

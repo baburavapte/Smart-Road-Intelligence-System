@@ -1,82 +1,142 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ApiService } from './services/api.service';
+import { AuthService } from './services/auth.service';
+import { ToastComponent } from './components/shared/toast.component';
+import { SocketService } from './services/socket.service';
+import { ToastService } from './services/toast.service';
+import { OfflineService } from './services/offline.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, ToastComponent],
   template: `
-    <div class="app-layout">
-      <!-- Floating Left Sidebar Navigation (Desktop Mode) / Bottom Navigation (Tablet & Mobile) -->
-      <aside class="sidebar animate-fade-in">
+    <div class="offline-banner" *ngIf="isOffline" role="alert">
+      <i class="ti ti-wifi-off" aria-hidden="true"></i>
+      <span>No internet connection — some features may be unavailable</span>
+    </div>
+
+    <div class="app-layout" [class.no-sidebar]="!showSidebar" [style.margin-top]="isOffline ? '40px' : '0'">
+      
+      <!-- Left Sidebar (Visible only when logged in) -->
+      <aside class="sidebar animate-fade-in" *ngIf="showSidebar">
         <div class="sidebar-top">
-          <!-- Logo Mark (Non-clickable) -->
+          <!-- Logo Mark -->
           <div class="logo-mark" aria-hidden="true">
             <span class="logo-icon">RI</span>
           </div>
 
-          <!-- Nav Items -->
-          <a routerLink="/admin" routerLinkActive="active" class="nav-item" title="Government Dashboard">
-            <span class="indicator"></span>
-            <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
-            <span class="tooltip">Dashboard</span>
-          </a>
+          <!-- Nav List: CITIZEN -->
+          <ng-container *ngIf="userRole === 'citizen'">
+            <a routerLink="/citizen/dashboard" routerLinkActive="active" class="nav-item" title="Citizen Dashboard">
+              <span class="indicator"></span>
+              <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
+              <span class="tooltip">Citizen Dashboard</span>
+            </a>
 
-          <a routerLink="/dashboard" routerLinkActive="active" class="nav-item" title="Map View">
-            <span class="indicator"></span>
-            <i class="ti ti-map-2" aria-hidden="true"></i>
-            <span class="tooltip">Map View</span>
-          </a>
+            <a routerLink="/citizen/report" routerLinkActive="active" class="nav-item" title="Submit Report">
+              <span class="indicator"></span>
+              <i class="ti ti-plus" aria-hidden="true"></i>
+              <span class="tooltip">Submit Report</span>
+            </a>
+          </ng-container>
 
-          <a routerLink="/citizen-dashboard" routerLinkActive="active" class="nav-item" title="Citizen Reports">
-            <span class="indicator"></span>
-            <i class="ti ti-alert-triangle" aria-hidden="true"></i>
-            <span class="tooltip">Reports</span>
-          </a>
+          <!-- Nav List: OFFICER / ADMIN -->
+          <ng-container *ngIf="userRole === 'officer' || userRole === 'admin'">
+            <a routerLink="/admin/dashboard" routerLinkActive="active" class="nav-item" title="Government Dashboard">
+              <span class="indicator"></span>
+              <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
+              <span class="tooltip">Government Dashboard</span>
+            </a>
 
-          <a routerLink="/road-health" routerLinkActive="active" class="nav-item" title="Road Health Dashboard">
-            <span class="indicator"></span>
-            <i class="ti ti-road" aria-hidden="true"></i>
-            <span class="tooltip">Road Health</span>
-          </a>
+            <a routerLink="/admin/reports" routerLinkActive="active" class="nav-item" title="Reports Management">
+              <span class="indicator"></span>
+              <i class="ti ti-receipt" aria-hidden="true"></i>
+              <span class="sla-badge-nav" *ngIf="overdueCount > 0">{{ overdueCount }}</span>
+              <span class="tooltip">Reports ({{ overdueCount }} overdue)</span>
+            </a>
 
-          <a routerLink="/history" routerLinkActive="active" class="nav-item" title="AI Analysis Logs">
-            <span class="indicator"></span>
-            <i class="ti ti-chart-line" aria-hidden="true"></i>
-            <span class="tooltip">Analytics</span>
-          </a>
+            <a routerLink="/admin/road-health" routerLinkActive="active" class="nav-item" title="Road Health Dashboard">
+              <span class="indicator"></span>
+              <i class="ti ti-road" aria-hidden="true"></i>
+              <span class="tooltip">Road Health</span>
+            </a>
 
-          <a routerLink="/route-safety" routerLinkActive="active" class="nav-item" title="Route Safety Planner">
-            <span class="indicator"></span>
-            <i class="ti ti-crystal-ball" aria-hidden="true"></i>
-            <span class="tooltip">Forecast</span>
-          </a>
+            <a routerLink="/admin/contractors" routerLinkActive="active" class="nav-item" title="Contractors Portal">
+              <span class="indicator"></span>
+              <i class="ti ti-users" aria-hidden="true"></i>
+              <span class="tooltip">Contractors</span>
+            </a>
+
+            <a routerLink="/admin/analytics" routerLinkActive="active" class="nav-item" title="Operational Analytics">
+              <span class="indicator"></span>
+              <i class="ti ti-chart-bar" aria-hidden="true"></i>
+              <span class="tooltip">Analytics</span>
+            </a>
+
+            <a routerLink="/admin/forecast" routerLinkActive="active" class="nav-item" title="Condition Forecast">
+              <span class="indicator"></span>
+              <i class="ti ti-trending-down" aria-hidden="true"></i>
+              <span class="tooltip">Forecast</span>
+            </a>
+
+            <a routerLink="/admin/schedule" routerLinkActive="active" class="nav-item" title="Maintenance Schedule">
+              <span class="indicator"></span>
+              <i class="ti ti-calendar" aria-hidden="true"></i>
+              <span class="tooltip">Schedule</span>
+            </a>
+
+            <a routerLink="/admin/detection" routerLinkActive="active" class="nav-item" title="Run AI Detection">
+              <span class="indicator"></span>
+              <i class="ti ti-cpu" aria-hidden="true"></i>
+              <span class="tooltip">AI Detection</span>
+            </a>
+
+            <a routerLink="/admin/route-safety" routerLinkActive="active" class="nav-item" title="Route Safety Planner">
+              <span class="indicator"></span>
+              <i class="ti ti-shield-check" aria-hidden="true"></i>
+              <span class="tooltip">Route Safety</span>
+            </a>
+
+            <a *ngIf="userRole === 'admin'" routerLink="/admin/users" routerLinkActive="active" class="nav-item" title="User Management">
+              <span class="indicator"></span>
+              <i class="ti ti-users-group" aria-hidden="true"></i>
+              <span class="tooltip">User Management</span>
+            </a>
+
+            <a *ngIf="userRole === 'admin'" routerLink="/admin/audit-logs" routerLinkActive="active" class="nav-item" title="System Audit Logs">
+              <span class="indicator"></span>
+              <i class="ti ti-shield-alert" aria-hidden="true"></i>
+              <span class="tooltip">Audit Logs</span>
+            </a>
+          </ng-container>
 
           <div class="nav-divider" aria-hidden="true"></div>
 
-          <!-- Notification Link with optional badge indicator -->
+          <!-- Shared links: Notifications -->
           <a routerLink="/notifications" routerLinkActive="active" class="nav-item" title="Notifications">
             <span class="indicator"></span>
             <i class="ti ti-bell" aria-hidden="true"></i>
             <span class="notif-badge-dot" *ngIf="unreadCount > 0"></span>
-            <span class="tooltip">Notifications ({{ unreadCount }})</span>
+            <span class="tooltip">Notifications ({{ unreadCount }} unread)</span>
           </a>
         </div>
 
         <div class="sidebar-bottom">
           <!-- Settings Icon -->
-          <a routerLink="/about" routerLinkActive="active" class="nav-item" title="About & Settings">
+          <a routerLink="/settings" routerLinkActive="active" class="nav-item" title="Settings">
             <span class="indicator"></span>
             <i class="ti ti-settings" aria-hidden="true"></i>
             <span class="tooltip">Settings</span>
           </a>
 
-          <!-- User Avatar Circle -->
-          <div class="user-avatar" title="User Session" aria-hidden="true">
-            <span>RI</span>
-          </div>
+          <!-- Logout Button -->
+          <button class="nav-item btn-logout-sidebar" (click)="logout()" title="Logout">
+            <i class="ti ti-logout" aria-hidden="true"></i>
+            <span class="tooltip">Logout</span>
+          </button>
         </div>
       </aside>
 
@@ -85,7 +145,9 @@ import { ApiService } from './services/api.service';
         <main class="content-viewport">
           <router-outlet></router-outlet>
         </main>
+        <app-toast></app-toast>
       </div>
+
     </div>
   `,
   styles: [`
@@ -95,6 +157,11 @@ import { ApiService } from './services/api.service';
       width: 100%;
     }
 
+    .app-layout.no-sidebar .main-container-layout {
+      margin-left: 0 !important;
+      padding-bottom: 0 !important;
+    }
+
     /* Sidebar Navigation */
     .sidebar {
       position: fixed;
@@ -102,10 +169,10 @@ import { ApiService } from './services/api.service';
       left: 0;
       width: var(--sidebar-width);
       height: 100vh;
-      background: rgba(255, 255, 255, 0.72);
-      backdrop-filter: blur(30px);
-      -webkit-backdrop-filter: blur(30px);
-      border-right: 0.5px solid rgba(0, 0, 0, 0.07);
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border-right: 0.5px solid rgba(0, 0, 0, 0.08);
       padding: 24px 0;
       display: flex;
       flex-direction: column;
@@ -125,7 +192,7 @@ import { ApiService } from './services/api.service';
     .logo-mark {
       width: 36px;
       height: 36px;
-      background: var(--primary);
+      background: var(--color-primary);
       border-radius: 10px;
       display: flex;
       align-items: center;
@@ -138,6 +205,11 @@ import { ApiService } from './services/api.service';
       box-shadow: 0 4px 10px rgba(0, 122, 255, 0.2);
     }
 
+    .logo-icon {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+    }
+
     .nav-item {
       width: 44px;
       height: 44px;
@@ -145,21 +217,24 @@ import { ApiService } from './services/api.service';
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-secondary);
+      color: var(--color-muted);
       text-decoration: none;
       position: relative;
       transition: var(--transition);
       font-size: 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
     }
 
     .nav-item:hover {
-      background: rgba(0, 122, 255, 0.08);
-      color: var(--primary);
+      background: rgba(0, 122, 255, 0.06);
+      color: var(--color-primary);
     }
 
     .nav-item.active {
-      background: rgba(0, 122, 255, 0.12);
-      color: var(--primary);
+      background: rgba(0, 122, 255, 0.1);
+      color: var(--color-primary);
     }
 
     /* Active Indicator Pill on Left Edge */
@@ -169,7 +244,7 @@ import { ApiService } from './services/api.service';
       top: 12px;
       width: 3px;
       height: 20px;
-      background: var(--primary);
+      background: var(--color-primary);
       border-radius: 0 3px 3px 0;
       opacity: 0;
       transition: var(--transition);
@@ -185,9 +260,8 @@ import { ApiService } from './services/api.service';
       left: 60px;
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       border: 0.5px solid rgba(0, 0, 0, 0.08);
-      color: var(--text-primary);
+      color: var(--color-text);
       padding: 6px 12px;
       border-radius: 20px;
       font-size: 11px;
@@ -221,24 +295,31 @@ import { ApiService } from './services/api.service';
       right: 12px;
       width: 6px;
       height: 6px;
-      background: var(--danger);
+      background: var(--color-danger);
       border-radius: 50%;
       box-shadow: 0 0 0 1.5px white;
     }
 
-    .user-avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #007AFF 0%, #BF5AF2 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .sla-badge-nav {
+      position: absolute;
+      top: 8px;
+      right: 4px;
+      background: var(--color-danger);
       color: white;
-      font-weight: 600;
-      font-size: 11px;
-      letter-spacing: -0.2px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 8px;
+      border: 1px solid white;
+    }
+
+    .btn-logout-sidebar {
+      color: var(--color-danger);
+    }
+    
+    .btn-logout-sidebar:hover {
+      background: rgba(255, 69, 58, 0.08);
+      color: var(--color-danger);
     }
 
     /* Main Viewport Container */
@@ -257,7 +338,7 @@ import { ApiService } from './services/api.service';
       width: 100%;
     }
 
-    /* Breakpoint adjustments */
+    /* Mobile bar navigation style override */
     @media (max-width: 1024px) {
       .sidebar {
         position: fixed;
@@ -302,71 +383,138 @@ import { ApiService } from './services/api.service';
       }
     }
 
-    @media (max-width: 768px) {
-      /* Show 5 main items only on mobile */
-      .nav-item[title="AI Analysis Logs"],
-      .nav-item[title="About & Settings"] {
-        display: none;
-      }
+    .offline-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: rgba(255, 69, 58, 0.95);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      animation: slideDown 0.3s ease;
+      height: 40px;
+      box-sizing: border-box;
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-100%); }
+      to   { transform: translateY(0); }
     }
   `]
 })
 export class AppComponent implements OnInit, OnDestroy {
-  currentYear = new Date().getFullYear();
+  isLoggedIn = false;
+  userRole = '';
   unreadCount = 0;
-  mobileOpen = false;
-  exploreOpen = false;
-  citizenOpen = false;
-  private intervalId: ReturnType<typeof setInterval> | null = null;
+  overdueCount = 0;
+  isOffline = false;
 
-  constructor(private apiService: ApiService) {}
-
-  @HostListener('window:resize')
-  onResize(): void {
-    if (window.innerWidth > 900) {
-      this.mobileOpen = false;
-    }
+  get showSidebar(): boolean {
+    return this.isLoggedIn && this.router.url !== '/login';
   }
+  private checkInterval: any;
 
-  ngOnInit(): void {
-    this.checkNotifications();
-    this.intervalId = setInterval(() => this.checkNotifications(), 15000);
-  }
+  constructor(
+    private authService: AuthService,
+    private apiService: ApiService,
+    private router: Router,
+    private socketService: SocketService,
+    private toastService: ToastService,
+    private offlineService: OfflineService
+  ) {}
 
-  ngOnDestroy(): void {
-    if (this.intervalId) clearInterval(this.intervalId);
-  }
-
-  toggleExplore(): void {
-    this.exploreOpen = !this.exploreOpen;
-    this.citizenOpen = false;
-  }
-
-  toggleCitizen(): void {
-    this.citizenOpen = !this.citizenOpen;
-    this.exploreOpen = false;
-  }
-
-  closeAll(): void {
-    this.exploreOpen = false;
-    this.citizenOpen = false;
-  }
-
-  closeMobile(): void {
-    this.mobileOpen = false;
-  }
-
-  checkNotifications(): void {
-    const email = localStorage.getItem('citizenEmail');
-    if (!email) {
-      this.unreadCount = 0;
-      return;
-    }
-    this.apiService.getUnreadNotificationsCount(email).subscribe({
-      next: (res) => {
-        if (res.success) this.unreadCount = res.count;
-      },
-      error: () => {}
+  ngOnInit() {
+    this.offlineService.isOnline$.subscribe(online => {
+      const wasOffline = this.isOffline;
+      this.isOffline = !online;
+      if (online) {
+        if (wasOffline) {
+          this.toastService.success('Connection restored');
+        }
+      } else {
+        this.toastService.error('No internet connection');
+      }
     });
+
+    this.authService.currentUser$.subscribe(user => {
+      this.isLoggedIn = !!user;
+      this.userRole = user?.role || '';
+      
+      if (this.isLoggedIn) {
+        this.runPeriodicChecks();
+      } else {
+        this.stopPeriodicChecks();
+      }
+    });
+
+    // Handle WebSocket notification events
+    this.socketService.notification$.subscribe(notif => {
+      this.toastService.show(notif.message, notif.type === 'new_report' ? 'info' : 'success');
+      this.unreadCount++;
+      this.runPeriodicChecks();
+    });
+
+    // Run first count immediately
+    this.runPeriodicChecks();
+    this.checkInterval = setInterval(() => this.runPeriodicChecks(), 25000);
+  }
+
+  ngOnDestroy() {
+    this.stopPeriodicChecks();
+  }
+
+  logout() {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+
+  private runPeriodicChecks() {
+    if (!this.isLoggedIn) return;
+
+    // 1. Check notifications
+    const email = this.authService.getUserEmail();
+    if (email) {
+      this.apiService.getUnreadNotificationsCount(email).subscribe(res => {
+        if (res.success) this.unreadCount = res.count;
+      });
+    }
+
+    // 2. Check overdue SLA count
+    if (this.userRole === 'officer' || this.userRole === 'admin') {
+      this.apiService.getCitizenReports(undefined, undefined, 1, 100).subscribe(res => {
+        if (res.success && res.data) {
+          let count = 0;
+          res.data.forEach((r: any) => {
+            if (r.reportLifecycle !== 'fixed' && r.reportLifecycle !== 'closed') {
+              const ageDays = (Date.now() - new Date(r.createdAt).getTime()) / (24 * 60 * 60 * 1000);
+              const sev = r.detection?.severity || 'low';
+              let limit = 14;
+              if (sev === 'critical') limit = 3;
+              else if (sev === 'high' || sev === 'medium') limit = 7;
+              
+              if (ageDays > limit) {
+                count++;
+              }
+            }
+          });
+          this.overdueCount = count;
+        }
+      });
+    }
+  }
+
+  private stopPeriodicChecks() {
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+    }
+    this.unreadCount = 0;
+    this.overdueCount = 0;
   }
 }

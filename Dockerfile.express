@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy dependency manifests
+COPY server/package*.json ./
+
+# Install production dependencies
+RUN npm ci --only=production
+
+# Copy backend codebase
+COPY server/ .
+
+# Ensure upload directory exists
+RUN mkdir -p uploads
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

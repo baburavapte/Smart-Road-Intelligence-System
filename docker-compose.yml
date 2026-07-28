@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: pothole_mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: pothole-detection
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  flask-inference:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    container_name: pothole_flask_inference
+    restart: always
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./inference-service/uploads:/app/uploads
+      - ./inference-service/results:/app/results
+    depends_on:
+      - mongodb
+
+  express-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.express
+    container_name: pothole_express_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://mongodb:27017/pothole-detection
+      - FLASK_URL=http://flask-inference:5001
+      - JWT_SECRET=production-secret-key-change-this-in-env-file-32chars
+      - ADMIN_EMAIL=admin@smartcity.gov.in
+    volumes:
+      - ./server/uploads:/app/uploads
+    depends_on:
+      - mongodb
+      - flask-inference
+
+  angular-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.angular
+    container_name: pothole_angular_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - express-backend
+
+volumes:
+  mongo-data:

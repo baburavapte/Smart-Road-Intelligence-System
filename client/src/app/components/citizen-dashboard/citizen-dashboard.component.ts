@@ -3,6 +3,13 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
+import { TimelineProgressComponent } from '../shared/timeline-progress.component';
+import { StatusBadgeComponent } from '../shared/status-badge.component';
+import { KPICardComponent } from '../shared/kpi-card.component';
+import { SkeletonComponent } from '../shared/skeleton.component';
+import { ErrorCardComponent } from '../shared/error-card.component';
+import { ToastService } from '../../services/toast.service';
 
 interface CitizenReport {
   id: string;
@@ -13,6 +20,10 @@ interface CitizenReport {
   reportLifecycle: 'reported' | 'verified' | 'assigned' | 'in_progress' | 'fixed' | 'closed';
   assignedTeam: string;
   createdAt: string;
+  verifiedAt?: string;
+  assignedAt?: string;
+  fixedAt?: string;
+  closedAt?: string;
   detection: {
     id: string;
     originalImage: string;
@@ -26,32 +37,52 @@ interface CitizenReport {
 @Component({
   selector: 'app-citizen-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, TimelineProgressComponent, StatusBadgeComponent, KPICardComponent, SkeletonComponent, ErrorCardComponent],
   template: `
-    <div class="page-container">
+    <div class="page-container flex-page">
       <div class="container small-container">
         <!-- Header -->
         <header class="page-header animate-fade-in">
           <div class="page-header-text">
-            <h1 class="page-title">Citizen Portal</h1>
-            <p class="page-header-subtitle">Track the status of road reports and verify municipal repair milestones</p>
+            <h1 class="page-title">Citizen Workspace</h1>
+            <p class="page-header-subtitle">Track your reports, receive live status notifications, and verify fixes.</p>
+          </div>
+          <div class="page-header-actions">
+            <a routerLink="/citizen/report" class="btn-primary">
+              <i class="ti ti-plus" aria-hidden="true"></i> Submit New Report
+            </a>
           </div>
         </header>
 
-        <!-- Dynamic User Welcome Profile Banner (Only if reports found) -->
-        <div class="welcome-card glass-panel animate-fade-in-up" *ngIf="hasSearched && !loading && reports.length > 0">
+        <!-- Welcome Profile Banner -->
+        <div class="welcome-card glass-panel animate-fade-in-up" *ngIf="citizenName">
           <div class="profile-row">
             <div class="profile-avatar">
-              {{ (reports[0]?.reporterName?.substring(0, 2) || 'CI').toUpperCase() }}
+              {{ citizenInitials }}
             </div>
             <div class="profile-text">
-              <h2>Welcome back, {{ reports[0]?.reporterName || 'Citizen' }}</h2>
-              <p>You have submitted {{ reports.length }} municipal {{ reports.length === 1 ? 'report' : 'reports' }} linked to <strong style="color: var(--primary);">{{ searchedEmail }}</strong></p>
+              <h2>Hello, {{ citizenName }}</h2>
+              <p>Registered Citizen · Citizen Account Ward 4</p>
             </div>
           </div>
         </div>
 
-        <!-- Email Lookup Bar -->
+        <!-- In-app Notifications Bell alerts -->
+        <section class="notifications-section glass-card animate-fade-in-up" *ngIf="notifications.length > 0">
+          <div class="section-header-row">
+            <h3 class="card-title"><i class="ti ti-bell-ringing" aria-hidden="true"></i> Live Ticket Updates</h3>
+            <button class="btn-ghost btn-sm" (click)="clearNotifications()">Dismiss All</button>
+          </div>
+          <div class="notif-list">
+            <div class="notif-item" *ngFor="let n of notifications">
+              <div class="notif-dot"></div>
+              <span class="notif-msg">{{ n.message }}</span>
+              <span class="notif-time">{{ n.createdAt | date:'shortTime' }}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Search Lookup card -->
         <section class="lookup-card glass-card animate-fade-in-up" style="animation-delay: 0.05s" aria-label="Track reported potholes">
           <div class="lookup-form">
             <div class="input-wrapper">
@@ -62,100 +93,128 @@ interface CitizenReport {
                 type="email"
                 [(ngModel)]="emailInput"
                 placeholder="Enter email used to submit reports"
-                class="email-input"
+                class="email-input glass-input"
                 (keyup.enter)="onSearch()"
                 aria-label="Email address"
               />
             </div>
             <button class="btn-primary btn-lookup" (click)="onSearch()" [disabled]="loading">
-              <span *ngIf="loading" class="spinner-inline"></span>
-              {{ loading ? 'Searching...' : 'Track My Reports' }}
+              {{ loading ? 'Searching...' : 'Track Reports' }}
             </button>
           </div>
         </section>
 
         <!-- Main Content Area -->
-        <div class="results-area animate-fade-in-up" style="animation-delay: 0.1s" *ngIf="hasSearched">
+        <div class="results-area animate-fade-in-up" style="animation-delay: 0.1s">
+
           <!-- Loading State -->
-          <div class="loading-state" *ngIf="loading">
-            <span class="spinner" aria-hidden="true"></span>
-            <p>Loading reports...</p>
+          <div *ngIf="loading" class="flex-col" style="gap: 16px; margin-top: 16px;">
+            <app-skeleton type="card" *ngFor="let i of [1,2]"></app-skeleton>
           </div>
 
+          <!-- Error State -->
+          <app-error-card *ngIf="!loading && error" (retry)="loadReportsForEmail(searchedEmail)"></app-error-card>
+
           <!-- Empty State -->
-          <div class="empty-state glass-card" *ngIf="!loading && reports.length === 0">
-            <div class="empty-icon" aria-hidden="true">📋</div>
+          <div class="empty-state glass-card text-center" *ngIf="!loading && !error && reports.length === 0">
+            <div class="empty-icon" aria-hidden="true">
+              <i class="ti ti-clipboard-off" style="font-size: 48px; color: var(--color-muted);"></i>
+            </div>
             <h3>No Reports Found</h3>
-            <p>No reports found for <strong>{{ searchedEmail }}</strong>. Make sure you entered the correct email address.</p>
-            <a routerLink="/detect" class="btn-primary" style="margin-top: 16px;">Submit First Report</a>
+            <p>You haven't submitted any pothole reports under the email: <strong>{{ emailInput }}</strong>.</p>
+            <a routerLink="/citizen/report" class="btn-primary" style="margin-top: 16px;">Submit Your First Report</a>
           </div>
 
           <!-- Reports List Timeline -->
           <section class="reports-list" *ngIf="!loading && reports.length > 0" aria-label="Report list timeline">
-            <div class="report-card glass-card" *ngFor="let rep of reports">
-              <!-- Left Column: Detection image card preview -->
-              <div class="report-img-section" *ngIf="rep.detection">
-                <img [src]="rep.detection.annotatedImage" alt="AI pothole analysis screenshot" class="report-img" />
-                <span class="severity-badge-overlay severity-badge" [ngClass]="'severity-' + (rep.detection.severity || 'low')">
-                  {{ rep.detection.severity }}
-                </span>
+            <div class="report-wrapper" *ngFor="let rep of reports">
+              <div class="report-card glass-card" (click)="toggleExpand(rep.id)">
+                <!-- Left Column: Image -->
+                <div class="report-img-section" *ngIf="rep.detection">
+                  <img [src]="rep.detection.annotatedImage" alt="AI pothole analysis screenshot" class="report-img" />
+                  <app-status-badge [status]="rep.detection.severity" type="severity" class="severity-badge-overlay"></app-status-badge>
+                </div>
+
+                <!-- Center Column: Details -->
+                <div class="report-info-section">
+                  <div class="report-card-header">
+                    <span class="report-date"><i class="ti ti-calendar" aria-hidden="true"></i> {{ rep.createdAt | date:'mediumDate' }}</span>
+                    <span class="report-id">ID: #{{ rep.id | slice:0:8 }}</span>
+                  </div>
+
+                  <h3 class="road-name-title">{{ rep.detection?.location?.coordinates ? 'Road coordinates selected' : 'Vadodara Main Road' }}</h3>
+                  
+                  <p class="report-desc" *ngIf="rep.description">
+                    "{{ rep.description }}"
+                  </p>
+                  
+                  <!-- Step Timeline Bar -->
+                  <app-timeline-progress [activeStep]="rep.reportLifecycle"></app-timeline-progress>
+                </div>
+
+                <!-- Right Column: Status info -->
+                <div class="report-actions-section">
+                  <app-status-badge [status]="rep.reportLifecycle" type="lifecycle"></app-status-badge>
+                  <p class="status-note" style="margin-top: 12px; font-size: 11px; text-align: center; color: var(--color-muted);">
+                    Click to view details & crew notes
+                  </p>
+                </div>
               </div>
 
-              <!-- Center Column: Status lifecycle tracker and Details -->
-              <div class="report-info-section">
-                <div class="report-card-header">
-                  <span class="report-date"><i class="ti ti-calendar" aria-hidden="true"></i> {{ formatDate(rep.createdAt) }}</span>
-                  <span class="report-id">ID: {{ rep.id | slice:0:8 }}</span>
-                </div>
-
-                <p class="report-desc" *ngIf="rep.description">
-                  "{{ rep.description }}"
-                </p>
-                <p class="report-desc no-desc" *ngIf="!rep.description">
-                  No additional description provided.
-                </p>
-
-                <!-- Technical counts -->
-                <div class="report-stats-grid">
-                  <div class="stat-box">
-                    <span class="stat-lbl">Potholes Detected</span>
-                    <span class="stat-val font-accent">{{ rep.detection?.potholeCount || 0 }}</span>
-                  </div>
-                  <div class="stat-box">
-                    <span class="stat-lbl">Assigned Team</span>
-                    <span class="stat-val">{{ rep.assignedTeam || 'Waiting for assignment' }}</span>
-                  </div>
-                </div>
-
-                <!-- Horizontal steps status track line -->
-                <div class="lifecycle-track-bar">
-                  <div
-                    class="lifecycle-step"
-                    *ngFor="let step of steps"
-                    [class.active]="isStepActive(rep.reportLifecycle, step.id)"
-                    [class.current]="rep.reportLifecycle === step.id"
-                  >
-                    <div class="step-dot-outer">
-                      <div class="step-dot"></div>
+              <!-- Expanded Details Panel -->
+              <div class="expanded-details glass-card animate-fade-in" *ngIf="expandedReportId === rep.id">
+                <h4 class="section-title" style="font-size: 14px; margin-bottom: 12px;">Timeline Tracking Details</h4>
+                <div class="detail-timeline-flow">
+                  
+                  <div class="flow-step" [class.done]="true">
+                    <div class="flow-marker"></div>
+                    <div class="flow-text">
+                      <h5>Submitted</h5>
+                      <p class="flow-date">{{ rep.createdAt | date:'medium' }}</p>
+                      <p class="flow-note">Citizen ticket received and geocoded via platform.</p>
                     </div>
-                    <span class="step-lbl">{{ step.label }}</span>
                   </div>
-                </div>
-              </div>
 
-              <!-- Right Column: Verification actions -->
-              <div class="report-actions-section">
-                <ng-container *ngIf="rep.reportLifecycle === 'fixed' || rep.reportLifecycle === 'closed'">
-                  <a [routerLink]="['/repair-history', rep.id]" class="btn-primary btn-action">
-                    Verify Repair Proof
-                  </a>
-                </ng-container>
-                <ng-container *ngIf="rep.reportLifecycle !== 'fixed' && rep.reportLifecycle !== 'closed'">
-                  <div class="status-banner" [ngClass]="'status-' + rep.reportLifecycle">
-                    {{ getFriendlyStatus(rep.reportLifecycle) }}
+                  <div class="flow-step" [class.done]="hasStagePassed(rep.reportLifecycle, 'verified')">
+                    <div class="flow-marker"></div>
+                    <div class="flow-text">
+                      <h5>AI Verified</h5>
+                      <p class="flow-date" *ngIf="rep.verifiedAt">{{ rep.verifiedAt | date:'medium' }}</p>
+                      <p class="flow-note">AI Inference model validated road damages and computed severity weighting.</p>
+                    </div>
                   </div>
-                  <p class="status-note">Our municipal team is working on resolving this report.</p>
-                </ng-container>
+
+                  <div class="flow-step" [class.done]="hasStagePassed(rep.reportLifecycle, 'assigned')">
+                    <div class="flow-marker"></div>
+                    <div class="flow-text">
+                      <h5>Assigned</h5>
+                      <p class="flow-date" *ngIf="rep.assignedAt">{{ rep.assignedAt | date:'medium' }}</p>
+                      <p class="flow-note">Assigned to: <strong>{{ rep.assignedTeam || 'VMC Maintenance Crew' }}</strong></p>
+                    </div>
+                  </div>
+
+                  <div class="flow-step" [class.done]="hasStagePassed(rep.reportLifecycle, 'in_progress')">
+                    <div class="flow-marker"></div>
+                    <div class="flow-text">
+                      <h5>In Progress</h5>
+                      <p class="flow-note">Crew scheduled on-site repairs. Materials and machinery dispatched.</p>
+                    </div>
+                  </div>
+
+                  <div class="flow-step" [class.done]="hasStagePassed(rep.reportLifecycle, 'fixed')">
+                    <div class="flow-marker"></div>
+                    <div class="flow-text">
+                      <h5>Fixed</h5>
+                      <p class="flow-date" *ngIf="rep.fixedAt">{{ rep.fixedAt | date:'medium' }}</p>
+                      <p class="flow-note">Repair completed by contractor. Verification image uploaded.</p>
+                      <a *ngIf="rep.reportLifecycle === 'fixed' || rep.reportLifecycle === 'closed'" 
+                         [routerLink]="['/repair-history', rep.id]" class="btn-primary btn-sm" style="display: inline-block; margin-top: 8px;">
+                        Verify Repair Proof
+                      </a>
+                    </div>
+                  </div>
+                  
+                </div>
               </div>
             </div>
           </section>
@@ -164,9 +223,15 @@ interface CitizenReport {
     </div>
   `,
   styles: [`
+    .flex-page {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
     .welcome-card {
-      padding: 24px;
-      margin-bottom: 20px;
+      padding: 20px;
+      margin-bottom: 12px;
     }
 
     .profile-row {
@@ -179,33 +244,75 @@ interface CitizenReport {
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #007AFF 0%, #BF5AF2 100%);
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-forecast) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       color: white;
       font-weight: 700;
       font-size: 16px;
-      box-shadow: 0 4px 12px rgba(0,122,255,0.15);
-      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
     }
 
     .profile-text h2 {
       font-family: 'Outfit', sans-serif;
       font-size: 18px;
+      margin: 0;
       font-weight: 600;
-      color: var(--text-primary);
     }
 
     .profile-text p {
+      font-size: 12px;
+      color: var(--color-muted);
+      margin: 2px 0 0 0;
+    }
+
+    .notifications-section {
+      padding: 16px;
+      border-left: 4px solid var(--color-primary);
+    }
+
+    .section-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .notif-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .notif-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       font-size: 13px;
-      color: var(--text-secondary);
-      margin-top: 2px;
+      padding: 6px 0;
+      border-bottom: 0.5px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .notif-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--color-primary);
+      border-radius: 50%;
+    }
+
+    .notif-msg {
+      flex: 1;
+      color: var(--color-text);
+    }
+
+    .notif-time {
+      font-size: 11px;
+      color: var(--color-muted);
     }
 
     .lookup-card {
       padding: 20px;
-      margin-bottom: 24px;
     }
 
     .lookup-form {
@@ -226,7 +333,7 @@ interface CitizenReport {
       top: 50%;
       transform: translateY(-50%);
       font-size: 16px;
-      color: var(--text-secondary);
+      color: var(--color-muted);
       display: flex;
     }
 
@@ -240,7 +347,7 @@ interface CitizenReport {
     }
 
     .results-area {
-      margin-top: 16px;
+      margin-top: 12px;
     }
 
     .loading-state {
@@ -248,40 +355,55 @@ interface CitizenReport {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 60px;
-      gap: 16px;
+      padding: 40px;
+      gap: 12px;
     }
 
     .spinner {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border: 3px solid rgba(0, 0, 0, 0.05);
-      border-top-color: var(--primary);
+      border-top-color: var(--color-primary);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
-    /* Reports List */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .reports-list {
       display: flex;
       flex-direction: column;
       gap: 20px;
     }
 
+    .report-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     .report-card {
       display: flex;
-      padding: 24px;
-      gap: 24px;
-      align-items: stretch;
+      padding: 20px;
+      gap: 20px;
+      cursor: pointer;
+      align-items: center;
+      transition: var(--transition);
+    }
+
+    .report-card:hover {
+      transform: scale(1.01);
     }
 
     .report-img-section {
-      width: 180px;
-      min-height: 180px;
-      border-radius: 14px;
+      width: 140px;
+      height: 140px;
+      border-radius: 12px;
       overflow: hidden;
       position: relative;
-      border: 0.5px solid rgba(0,0,0,0.08);
+      border: 0.5px solid rgba(0, 0, 0, 0.08);
       flex-shrink: 0;
     }
 
@@ -293,323 +415,196 @@ interface CitizenReport {
 
     .severity-badge-overlay {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 9.5px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      top: 8px;
+      left: 8px;
     }
 
     .report-info-section {
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      gap: 12px;
+      gap: 4px;
     }
 
     .report-card-header {
       display: flex;
       justify-content: space-between;
-      font-size: 12.5px;
-      font-weight: 500;
+      font-size: 11px;
+      color: var(--color-muted);
     }
 
-    .report-date {
-      color: var(--text-secondary);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .report-id {
-      color: var(--primary);
-      font-family: monospace;
+    .road-name-title {
+      font-size: 15px;
       font-weight: 600;
+      color: var(--color-text);
+      margin: 2px 0;
     }
 
     .report-desc {
-      font-style: italic;
-      color: var(--text-primary);
-      font-size: 14px;
+      font-size: 13px;
+      color: var(--color-muted);
       line-height: 1.4;
+      font-style: italic;
     }
 
-    .no-desc {
-      color: var(--text-secondary);
-    }
-
-    .report-stats-grid {
-      display: grid;
-      grid-template-columns: 130px 1fr;
-      gap: 16px;
-    }
-
-    .stat-box {
+    .report-actions-section {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      min-width: 110px;
     }
 
-    .stat-lbl {
-      font-size: 10px;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
+    .expanded-details {
+      padding: 20px;
+      margin-left: 20px;
+      border-left: 3px solid var(--color-success);
     }
 
-    .stat-val {
-      font-size: 13.5px;
-      font-weight: 500;
-      color: var(--text-primary);
-    }
-
-    .font-accent {
-      color: var(--primary);
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-    }
-
-    /* Lifecycle Track Line */
-    .lifecycle-track-bar {
+    .detail-timeline-flow {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      gap: 16px;
       position: relative;
-      margin-top: 8px;
-      padding: 0 4px;
+      padding-left: 20px;
     }
 
-    .lifecycle-track-bar::before {
+    .detail-timeline-flow::before {
       content: '';
       position: absolute;
       top: 6px;
-      left: 10px;
-      right: 10px;
-      height: 2px;
+      bottom: 6px;
+      left: 4px;
+      width: 2px;
       background: rgba(0, 0, 0, 0.05);
-      z-index: 1;
     }
 
-    .lifecycle-step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      z-index: 2;
+    .flow-step {
       position: relative;
-      flex: 1;
     }
 
-    .step-dot-outer {
-      width: 14px;
-      height: 14px;
+    .flow-marker {
+      position: absolute;
+      left: -20px;
+      top: 4px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 0.5px solid rgba(0, 0, 0, 0.1);
-      margin-bottom: 4px;
-      transition: var(--transition);
+      background: #ccc;
+      border: 2px solid white;
     }
 
-    .step-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.15);
-      transition: var(--transition);
+    .flow-step.done .flow-marker {
+      background: var(--color-success);
     }
 
-    .step-lbl {
-      font-size: 9px;
-      color: var(--text-secondary);
-      text-align: center;
-      font-weight: 500;
-      transition: var(--transition);
-    }
-
-    .lifecycle-step.active .step-dot {
-      background: var(--primary);
-    }
-
-    .lifecycle-step.active .step-dot-outer {
-      border-color: var(--primary);
-      box-shadow: 0 0 8px rgba(0, 122, 255, 0.2);
-    }
-
-    .lifecycle-step.active .step-lbl {
-      color: var(--text-primary);
+    .flow-text h5 {
+      font-size: 13px;
       font-weight: 600;
+      margin: 0;
+      color: var(--color-text);
     }
 
-    .lifecycle-step.current .step-dot-outer {
-      background: var(--primary);
-      border-color: transparent;
-      box-shadow: 0 0 10px rgba(0, 122, 255, 0.4);
-      animation: pulse-dot 1.5s infinite alternate;
-    }
-
-    .lifecycle-step.current .step-dot {
-      background: white;
-      width: 5px;
-      height: 5px;
-    }
-
-    /* Right Action Section */
-    .report-actions-section {
-      width: 180px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      border-left: 0.5px solid rgba(0, 0, 0, 0.07);
-      padding-left: 20px;
-      flex-shrink: 0;
-      gap: 10px;
-    }
-
-    .btn-action {
-      width: 100%;
-      text-align: center;
-    }
-
-    .status-banner {
-      padding: 4px 12px;
-      border-radius: 12px;
+    .flow-date {
       font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      text-align: center;
-      width: 100%;
-      border: 0.5px solid transparent;
+      color: var(--color-muted);
+      margin-top: 2px;
     }
 
-    .status-reported { background: rgba(133,133,139,0.08); color: #85858b; border-color: rgba(133,133,139,0.15); }
-    .status-verified { background: rgba(0,122,255,0.08); color: var(--primary); border-color: rgba(0,122,255,0.15); }
-    .status-assigned { background: rgba(88,86,214,0.08); color: #5856D6; border-color: rgba(88,86,214,0.15); }
-    .status-in_progress { background: rgba(255,159,10,0.08); color: #FF9F0A; border-color: rgba(255,159,10,0.15); }
-    .status-fixed { background: rgba(48,209,88,0.08); color: var(--success); border-color: rgba(48,209,88,0.15); }
-    .status-closed { background: rgba(0,0,0,0.04); color: var(--text-secondary); border-color: rgba(0,0,0,0.08); }
-
-    .status-note {
-      font-size: 10.5px;
-      color: var(--text-secondary);
-      text-align: center;
-      line-height: 1.3;
-    }
-
-    .spinner-inline {
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-right-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: inline-block;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    @keyframes pulse-dot {
-      0% { transform: scale(1); box-shadow: 0 0 4px rgba(0, 122, 255, 0.2); }
-      100% { transform: scale(1.1); box-shadow: 0 0 10px rgba(0, 122, 255, 0.5); }
-    }
-
-    /* Responsive */
-    @media (max-width: 992px) {
-      .report-card {
-        flex-direction: column;
-      }
-      .report-img-section {
-        width: 100%;
-        height: 200px;
-        min-height: unset;
-      }
-      .report-actions-section {
-        width: 100%;
-        border-left: none;
-        border-top: 0.5px solid rgba(0, 0, 0, 0.07);
-        padding-left: 0;
-        padding-top: 16px;
-      }
+    .flow-note {
+      font-size: 12px;
+      color: var(--color-muted);
+      margin: 4px 0 0 0;
     }
   `]
 })
 export class CitizenDashboardComponent implements OnInit {
-  emailInput: string = '';
-  searchedEmail: string = '';
+  citizenName = '';
+  citizenInitials = '';
+  emailInput = '';
+  searchedEmail = '';
   reports: CitizenReport[] = [];
-  loading: boolean = false;
-  hasSearched: boolean = false;
+  notifications: any[] = [];
+  loading = false;
+  error = false;
+  expandedReportId: string | null = null;
 
-  steps = [
-    { id: 'reported', label: 'Reported' },
-    { id: 'verified', label: 'Verified' },
-    { id: 'assigned', label: 'Assigned' },
-    { id: 'in_progress', label: 'In Progress' },
-    { id: 'fixed', label: 'Fixed' },
-    { id: 'closed', label: 'Closed' }
-  ];
+  constructor(
+    private apiService: ApiService,
+    private authService: AuthService,
+    private toast: ToastService
+  ) {}
 
-  constructor(private apiService: ApiService) {}
+  ngOnInit() {
+    this.citizenName = this.authService.getUserName() || '';
+    if (this.citizenName) {
+      const parts = this.citizenName.split(' ');
+      this.citizenInitials = parts.map(p => p[0]).join('').toUpperCase().substring(0, 2);
+    }
 
-  ngOnInit(): void {
-    const savedEmail = localStorage.getItem('citizenEmail');
-    if (savedEmail) {
-      this.emailInput = savedEmail;
-      this.onSearch();
+    const email = this.authService.getUserEmail();
+    if (email) {
+      this.emailInput = email;
+      this.searchedEmail = email;
+      this.loadReportsForEmail(email);
+      this.loadNotifications(email);
     }
   }
 
-  onSearch(): void {
-    if (!this.emailInput.trim()) return;
+  onSearch() {
+    if (!this.emailInput) return;
+    this.searchedEmail = this.emailInput;
+    this.loadReportsForEmail(this.emailInput);
+  }
 
+  toggleExpand(reportId: string) {
+    this.expandedReportId = this.expandedReportId === reportId ? null : reportId;
+  }
+
+  hasStagePassed(currentLifecycle: string, stage: string): boolean {
+    const order = ['reported', 'verified', 'assigned', 'in_progress', 'fixed', 'closed'];
+    const currIndex = order.indexOf(currentLifecycle);
+    const targetIndex = order.indexOf(stage);
+    return currIndex >= targetIndex;
+  }
+
+  loadReportsForEmail(email: string) {
     this.loading = true;
-    this.hasSearched = true;
-    this.searchedEmail = this.emailInput.trim();
-    localStorage.setItem('citizenEmail', this.searchedEmail);
-
-    this.apiService.getCitizenReports(this.searchedEmail).subscribe({
+    this.error = false;
+    this.apiService.getCitizenReports(email).subscribe({
       next: (res) => {
         this.loading = false;
-        if (res.success) {
+        if (res.success && res.data) {
           this.reports = res.data;
         }
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
-        console.error('Failed to lookup citizen reports:', err);
+        this.error = true;
+        this.toast.error('Failed to load citizen data');
+        this.reports = [];
       }
     });
   }
 
-  isStepActive(currentStatus: string, stepId: string): boolean {
-    const order = ['reported', 'verified', 'assigned', 'in_progress', 'fixed', 'closed'];
-    const currentIndex = order.indexOf(currentStatus);
-    const stepIndex = order.indexOf(stepId);
-    return stepIndex <= currentIndex;
-  }
-
-  getFriendlyStatus(status: string): string {
-    const map: any = {
-      reported: 'Reported',
-      verified: 'Verified',
-      assigned: 'Assigned',
-      in_progress: 'In Progress',
-      fixed: 'Fixed',
-      closed: 'Closed'
-    };
-    return map[status] || status;
-  }
-
-  formatDate(d: string): string {
-    return new Date(d).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
+  private loadNotifications(email: string) {
+    this.apiService.getNotifications(email).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          // Keep only unread alerts for dashboard panel
+          this.notifications = res.data.filter((n: any) => !n.read).slice(0, 3);
+        }
+      }
     });
+  }
+
+  clearNotifications() {
+    const email = this.authService.getUserEmail();
+    if (email) {
+      this.apiService.markAllNotificationsAsRead(email).subscribe(() => {
+        this.notifications = [];
+      });
+    }
   }
 }

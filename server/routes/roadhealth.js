@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const authenticate = require('../middleware/auth');
+const auditLogger = require('../middleware/audit');
 const RoadHealth = require('../models/RoadHealth');
 const Detection = require('../models/Detection');
 const CitizenReport = require('../models/CitizenReport');
@@ -10,7 +12,7 @@ const severityWeights = { none: 0, low: 0.3, medium: 0.5, high: 0.8, critical: 1
  * GET /api/road-health
  * Get all roads with health scores
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
     try {
         const roads = await RoadHealth.find()
             .sort({ healthScore: 1 })
@@ -62,7 +64,7 @@ router.get('/geojson', async (req, res) => {
  * Get roads ranked by repair priority
  * Priority = (0.35 × Severity Impact) + (0.25 × Complaint Volume) + (0.25 × Inverse RHI) + (0.15 × Historical Frequency)
  */
-router.get('/priority', async (req, res) => {
+router.get('/priority', authenticate, async (req, res) => {
     try {
         const roads = await RoadHealth.find().lean();
         const priorityList = [];
@@ -131,7 +133,7 @@ router.get('/priority', async (req, res) => {
  * POST /api/road-health/roads
  * Admin: define a new road zone
  */
-router.post('/roads', async (req, res) => {
+router.post('/roads', authenticate, async (req, res) => {
     try {
         const { roadName, boundingBox } = req.body;
         if (!roadName) {
@@ -173,7 +175,7 @@ router.post('/roads', async (req, res) => {
  * POST /api/road-health/calculate
  * Recalculate all road health scores from detection data
  */
-router.post('/calculate', async (req, res) => {
+router.post('/calculate', authenticate, auditLogger('recalculate_road_health', 'RoadHealth'), async (req, res) => {
     try {
         const roads = await RoadHealth.find();
         const results = [];
@@ -226,7 +228,7 @@ router.post('/calculate', async (req, res) => {
  * GET /api/road-health/:id
  * Get single road detail with history
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
     try {
         const road = await RoadHealth.findById(req.params.id).lean();
         if (!road) {
@@ -243,7 +245,7 @@ router.get('/:id', async (req, res) => {
  * GET /api/road-health/:id/forecast
  * Simple linear regression forecast for 30/60/90 days
  */
-router.get('/:id/forecast', async (req, res) => {
+router.get('/:id/forecast', authenticate, async (req, res) => {
     try {
         const road = await RoadHealth.findById(req.params.id).lean();
         if (!road) {

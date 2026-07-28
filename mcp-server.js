@@ -6,8 +6,45 @@
 
 const readline = require('readline');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+// Zero-dependency .env loader to read ROADSENSE_API_KEY
+function loadEnv() {
+    const envPaths = [
+        path.join(__dirname, '.env'),
+        path.join(__dirname, 'server', '.env')
+    ];
+    for (const envPath of envPaths) {
+        if (fs.existsSync(envPath)) {
+            try {
+                const content = fs.readFileSync(envPath, 'utf8');
+                content.split(/\r?\n/).forEach(line => {
+                    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+                    if (match) {
+                        const key = match[1];
+                        let value = match[2] || '';
+                        if (value.length > 0 && value.charAt(0) === '"' && value.charAt(value.length - 1) === '"') {
+                            value = value.substring(1, value.length - 1);
+                        } else if (value.length > 0 && value.charAt(0) === "'" && value.charAt(value.length - 1) === "'") {
+                            value = value.substring(1, value.length - 1);
+                        }
+                        if (!process.env[key]) {
+                            process.env[key] = value.trim();
+                        }
+                    }
+                });
+                break;
+            } catch (err) {
+                // Ignore
+            }
+        }
+    }
+}
+loadEnv();
 
 const API_URL = 'http://localhost:3000/api';
+const ROADSENSE_API_KEY = process.env.ROADSENSE_API_KEY;
 
 const TOOLS = [
     {
@@ -156,6 +193,10 @@ function apiCall(method, path, body = null) {
                 'Content-Type': 'application/json'
             }
         };
+
+        if (ROADSENSE_API_KEY) {
+            options.headers['x-api-key'] = ROADSENSE_API_KEY;
+        }
 
         const req = http.request(url, options, (res) => {
             let data = '';

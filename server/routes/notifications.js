@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
+const authenticate = require('../middleware/auth');
 
 /**
  * GET /api/notifications
  * Get notifications for a citizen (filtered by email)
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
     try {
         const { email } = req.query;
         if (!email) {
@@ -39,7 +40,7 @@ router.get('/', async (req, res) => {
  * GET /api/notifications/unread-count
  * Get unread notification count for an email
  */
-router.get('/unread-count', async (req, res) => {
+router.get('/unread-count', authenticate, async (req, res) => {
     try {
         const { email } = req.query;
         if (!email) {
@@ -62,7 +63,7 @@ router.get('/unread-count', async (req, res) => {
  * PATCH /api/notifications/:id/read
  * Mark notification as read
  */
-router.patch('/:id/read', async (req, res) => {
+router.patch('/:id/read', authenticate, async (req, res) => {
     try {
         const notification = await Notification.findByIdAndUpdate(
             req.params.id,
@@ -85,7 +86,7 @@ router.patch('/:id/read', async (req, res) => {
  * PATCH /api/notifications/read-all
  * Mark all notifications as read for an email
  */
-router.patch('/read-all', async (req, res) => {
+router.patch('/read-all', authenticate, async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) {

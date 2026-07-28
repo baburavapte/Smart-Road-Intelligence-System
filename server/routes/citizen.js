@@ -3,6 +3,7 @@ const router = express.Router();
 const CitizenReport = require('../models/CitizenReport');
 const Detection = require('../models/Detection');
 const Notification = require('../models/Notification');
+const notifications = require('../services/notifications');
 
 const FLASK_URL = process.env.FLASK_URL || 'http://localhost:5001';
 
@@ -47,11 +48,34 @@ router.post('/reports', async (req, res) => {
             description: description || ''
         });
 
-        // Create notification
+        // Create notification database entry
         await createNotification(report, 'report_submitted',
             'Report Submitted',
             `Your pothole report has been submitted successfully. Report ID: ${report._id}`
         );
+
+        if (global.io) {
+            global.io.to('role-admin').to('role-officer').emit('notification', {
+                type: 'new_report',
+                title: 'New Citizen Report',
+                message: `New report submitted on ${detection.originalFilename || 'road'}. Severity: ${detection.severity}`,
+                reportId: report._id,
+                email: report.reporterEmail
+            });
+            if (report.reporterEmail) {
+                global.io.to(report.reporterEmail).emit('notification', {
+                    type: 'report_submitted',
+                    title: 'Report Submitted',
+                    message: `Your report has been received. ID: ${report._id.toString().substring(0,8)}`,
+                    reportId: report._id
+                });
+            }
+        }
+
+        // Send email to citizen
+        if (report.reporterEmail) {
+            await notifications.sendEmail(report.reporterEmail, 'reportSubmitted', report);
+        }
 
         res.status(201).json({ success: true, report });
     } catch (error) {
@@ -73,6 +97,68 @@ router.get('/reports', async (req, res) => {
 
         if (req.query.email) filter.reporterEmail = req.query.email;
         if (req.query.lifecycle) filter.reportLifecycle = req.query.lifecycle;
+        if (req.query.status) {
+            if (req.query.status === 'open') {
+                filter.reportLifecycle = { $nin: ['closed', 'fixed'] };
+            } else {
+                filter.reportLifecycle = req.query.status;
+            }
+        }
+        if (req.query.contractor) filter.assignedTeam = req.query.contractor;
+
+        if (req.query.dateFrom || req.query.dateTo) {
+            filter.createdAt = {};
+            if (req.query.dateFrom) filter.createdAt.$gte = new Date(req.query.dateFrom);
+            if (req.query.dateTo) filter.createdAt.$lte = new Date(req.query.dateTo);
+        }
+
+        // Geospatial zone filter
+        if (req.query.zone) {
+            const zonesConfig = require('../config/zones');
+            const zoneObj = zonesConfig.find(z => z.name === req.query.zone);
+            if (zoneObj && zoneObj.boundary) {
+                const matchingDetections = await Detection.find({
+                    location: {
+                        $geoWithin: {
+                            $geometry: zoneObj.boundary
+                        }
+                    }
+                }).select('_id').lean();
+                
+                const detectionIds = matchingDetections.map(d => d._id);
+                filter.detectionId = { $in: detectionIds };
+            }
+        }
+
+        // Severity filter
+        if (req.query.severity) {
+            const matchingDetections = await Detection.find({
+                severity: req.query.severity
+            }).select('_id').lean();
+            
+            const detectionIds = matchingDetections.map(d => d._id);
+            if (filter.detectionId) {
+                const currentIds = filter.detectionId.$in || [];
+                filter.detectionId = { $in: currentIds.filter(id => detectionIds.some(m => m.toString() === id.toString())) };
+            } else {
+                filter.detectionId = { $in: detectionIds };
+            }
+        }
+
+        // Search filter (on filename/road name)
+        if (req.query.search) {
+            const matchingDetections = await Detection.find({
+                originalFilename: { $regex: req.query.search, $options: 'i' }
+            }).select('_id').lean();
+            
+            const detectionIds = matchingDetections.map(d => d._id);
+            if (filter.detectionId) {
+                const currentIds = filter.detectionId.$in || [];
+                filter.detectionId = { $in: currentIds.filter(id => detectionIds.some(m => m.toString() === id.toString())) };
+            } else {
+                filter.detectionId = { $in: detectionIds };
+            }
+        }
 
         const total = await CitizenReport.countDocuments(filter);
         const reports = await CitizenReport.find(filter)
@@ -248,6 +334,25 @@ router.patch('/reports/:id/lifecycle', async (req, res) => {
         if (notificationMap[lifecycle]) {
             const n = notificationMap[lifecycle];
             await createNotification(report, n.type, n.title, n.msg);
+
+            if (global.io) {
+                if (report.reporterEmail) {
+                    global.io.to(report.reporterEmail).emit('notification', {
+                        type: n.type,
+                        title: n.title,
+                        message: n.msg,
+                        reportId: report._id,
+                        lifecycle
+                    });
+                }
+                global.io.to('role-admin').to('role-officer').emit('notification', {
+                    type: 'status_updated',
+                    title: 'Report Status Updated',
+                    message: `Report ID #${report._id.toString().substring(0,6)} updated to: ${lifecycle}`,
+                    reportId: report._id,
+                    lifecycle
+                });
+            }
         }
 
         res.json({
