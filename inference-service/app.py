@@ -11,7 +11,7 @@ from datetime import datetime
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from ultralytics import YOLO
-import cv2
+# import cv2
 import numpy as np
 
 app = Flask(__name__)
