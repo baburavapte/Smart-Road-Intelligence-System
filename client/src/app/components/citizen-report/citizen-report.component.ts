@@ -403,6 +403,43 @@ import { ToastService } from '../../services/toast.service';
         width: 100% !important;
         height: 160px !important;
       }
+      .wizard-actions {
+        flex-direction: column;
+      }
+      .wizard-actions button {
+        width: 100%;
+      }
+      .pill-selector {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .pill-btn {
+        padding: 8px 16px;
+        font-size: 12px;
+      }
+      .stepper-indicator {
+        gap: 4px;
+      }
+      .step-label {
+        font-size: 9px;
+      }
+      .step-num {
+        width: 24px;
+        height: 24px;
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .step-label {
+        display: none;
+      }
+      .step-line {
+        margin-bottom: 0;
+      }
+      .stepper-indicator {
+        align-items: center;
+      }
     }
 
     .summary-img-row {

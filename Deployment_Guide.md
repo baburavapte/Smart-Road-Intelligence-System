@@ -283,12 +283,9 @@ const FLASK_URL = process.env.FLASK_URL || 'http://localhost:5001';
 | `/dashboard` | `DashboardComponent` | KPI cards, severity distribution bars, recent activity |
 | `/about` | `AboutComponent` | Project description, tech stack info |
 
-> [!IMPORTANT]
-> **For deployment**, edit `api.service.ts` line:
-> ```typescript
-> private apiUrl = 'http://localhost:3000/api';
-> ```
-> Change `http://localhost:3000` to the deployed Express backend URL.
+> [!TIP]
+> **Production Configuration**: The project uses Angular environment file replacements (`environment.prod.ts`).
+> In production builds, `apiUrl` automatically switches to `/api` (for same-origin Nginx reverse proxy deployments), or can be configured via environment files. No manual code edits to `api.service.ts` are needed.
 
 ---
 

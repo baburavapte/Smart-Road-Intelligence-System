@@ -517,6 +517,78 @@ interface CitizenReport {
       color: var(--color-muted);
       margin: 4px 0 0 0;
     }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .report-card {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 16px;
+        gap: 12px;
+      }
+
+      .report-img-section {
+        width: 100%;
+        height: 180px;
+      }
+
+      .report-actions-section {
+        flex-direction: row;
+        justify-content: flex-start;
+        min-width: auto;
+        gap: 12px;
+      }
+
+      .expanded-details {
+        margin-left: 0;
+        padding: 16px;
+      }
+
+      .lookup-form {
+        flex-direction: column;
+        max-width: 100%;
+      }
+
+      .btn-lookup {
+        width: 100%;
+      }
+
+      .welcome-card {
+        padding: 16px;
+      }
+
+      .profile-text h2 {
+        font-size: 16px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .report-img-section {
+        height: 140px;
+      }
+
+      .report-card {
+        padding: 12px;
+        gap: 10px;
+      }
+
+      .report-card-header {
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .road-name-title {
+        font-size: 14px;
+      }
+
+      .notif-item {
+        font-size: 12px;
+      }
+
+      .detail-timeline-flow {
+        padding-left: 16px;
+      }
+    }
   `]
 })
 export class CitizenDashboardComponent implements OnInit {

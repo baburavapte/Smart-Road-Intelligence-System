@@ -307,6 +307,23 @@ interface Contractor {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
+
+    @media (max-width: 768px) {
+      .contractor-sidebar {
+        padding: 12px;
+      }
+
+      .contractor-card {
+        padding: 10px;
+        gap: 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .contractor-layout {
+        gap: 16px;
+      }
+    }
   `]
 })
 export class ContractorPortalComponent implements OnInit, AfterViewInit {

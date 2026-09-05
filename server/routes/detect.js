@@ -112,13 +112,23 @@ router.post('/detect', upload.single('image'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Detection error:', error.message);
+        console.error('========== DETECTION ERROR ==========');
+        console.error('Message:', error.message);
+        console.error('Status:', error.response?.status);
+        console.error('Flask response:', error.response?.data);
+        console.error('URL:', error.config?.url);
+        console.error('====================================');
+
         if (error.code === 'ECONNREFUSED') {
             return res.status(503).json({
-                error: 'Inference service is not available. Please ensure the Python Flask service is running on port 5000.'
+                error: 'Inference service is not available.'
             });
         }
-        res.status(500).json({ error: error.message || 'Internal server error' });
+
+        res.status(500).json({
+            success: false,
+            error: error.response?.data || error.message || 'Internal server error'
+        });
     }
 });
 

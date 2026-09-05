@@ -631,3 +631,90 @@ textarea.ng-valid.ng-touched {
 }
 .form-group { margin-bottom: 16px; }
 
+/* ── Global Responsive Rules ── */
+
+/* Tablet breakpoint */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  .page-title {
+    font-size: 24px;
+    letter-spacing: -0.3px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .page-container {
+    padding: 24px 0 80px;
+  }
+
+  .glass-panel {
+    padding: 20px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+}
+
+/* Small phone breakpoint */
+@media (max-width: 480px) {
+  .container {
+    padding: 0 12px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
+  .page-container {
+    padding: 16px 0 80px;
+  }
+
+  .glass-panel {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .page-header-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Global image constraint */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Global table responsive wrapper */
+.table-responsive-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+

@@ -305,6 +305,12 @@ Chart.register(...registerables);
       cursor: pointer;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
+
+    @media (max-width: 480px) {
+      .chart-wrapper-card, .simulator-card, .weather-card {
+        padding: 14px;
+      }
+    }
   `]
 })
 export class ForecastComponent implements OnInit, AfterViewInit, OnDestroy {

@@ -868,6 +868,12 @@ export interface KPIData {
       }
     }
 
+    @media (max-width: 900px) {
+      .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
     @media (max-width: 768px) {
       .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -881,7 +887,103 @@ export interface KPIData {
       .bottom-three-grid .actions-column {
         grid-column: span 1;
       }
+      .map-hero-panel {
+        height: 280px;
+        min-height: 280px;
+        border-radius: 16px;
+      }
+      .floating-search-bar {
+        width: 180px;
+        padding: 7px 10px;
+        font-size: 12px;
+      }
+      .floating-layer-switcher {
+        padding: 3px;
+      }
+      .floating-layer-switcher button {
+        padding: 5px 7px;
+        font-size: 10px;
+      }
+      .floating-map-legend {
+        padding: 6px 8px;
+        font-size: 10px;
+      }
+      .legend-row {
+        font-size: 10px;
+      }
+      .right-analytics-stack {
+        gap: 8px;
+      }
+      .panel-card {
+        padding: 12px;
+      }
+      .overdue-item {
+        padding: 6px 8px;
+      }
     }
+
+    @media (max-width: 480px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .kpi-card:last-child {
+        grid-column: span 1;
+      }
+      .kpi-card {
+        padding: 12px;
+      }
+      .kpi-value {
+        font-size: 20px;
+      }
+      .map-hero-panel {
+        height: 220px;
+        min-height: 220px;
+        border-radius: 12px;
+      }
+      .floating-search-bar {
+        width: 140px;
+        padding: 6px 8px;
+        top: 8px;
+        left: 8px;
+      }
+      .floating-layer-switcher {
+        top: 8px;
+        right: 8px;
+      }
+      .floating-layer-switcher button {
+        padding: 4px 5px;
+        font-size: 9px;
+      }
+      .floating-map-controls {
+        bottom: 8px;
+        right: 8px;
+      }
+      .floating-map-legend {
+        bottom: 8px;
+        left: 8px;
+        display: none;
+      }
+      .map-control-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 14px;
+      }
+      .modal-card {
+        max-width: 100%;
+        margin: 0 8px;
+        padding: 16px;
+        border-radius: 16px;
+      }
+      .bottom-three-grid {
+        gap: 8px;
+      }
+      .table-column, .forecast-column, .actions-column {
+        padding: 12px;
+        min-height: auto;
+      }
+    }
+
 
     .table-column, .forecast-column, .actions-column {
       padding: 16px;

@@ -1097,7 +1097,71 @@ import 'leaflet.heat';
           padding: 6px 8px;
           font-size: 10px;
         }
+        .map-wrapper-container {
+          height: 380px;
+        }
+        .side-panel-card {
+          padding: 16px;
+        }
+        .bottom-panel-card {
+          padding: 16px;
+        }
       }
+
+      @media (max-width: 480px) {
+        .kpi-grid {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .kpi-card {
+          padding: 14px;
+          min-height: auto;
+        }
+        .kpi-value {
+          font-size: 22px;
+        }
+        .map-wrapper-container {
+          height: 260px;
+        }
+        .floating-search-bar {
+          width: 140px;
+          padding: 8px 10px;
+          top: 10px;
+          left: 10px;
+        }
+        .search-input {
+          font-size: 11px;
+        }
+        .floating-layer-switcher {
+          top: 10px;
+          right: 10px;
+        }
+        .floating-layer-switcher button {
+          padding: 4px 6px;
+          font-size: 9px;
+        }
+        .floating-legend-card {
+          display: none;
+        }
+        .floating-map-controls {
+          bottom: 10px;
+          right: 10px;
+        }
+        .map-control-btn {
+          width: 30px;
+          height: 30px;
+          font-size: 14px;
+        }
+        .bottom-panel-card {
+          padding: 14px;
+          gap: 12px;
+        }
+        .side-panel-card {
+          padding: 14px;
+          gap: 12px;
+        }
+      }
+
     `]
 })
 export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {

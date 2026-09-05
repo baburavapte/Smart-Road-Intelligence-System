@@ -130,6 +130,18 @@ Chart.register(...registerables);
       }
     }
 
+    @media (max-width: 480px) {
+      .chart-card {
+        padding: 14px;
+        min-height: 260px;
+        gap: 12px;
+      }
+
+      .chart-canvas-container {
+        height: 180px;
+      }
+    }
+
     .chart-card {
       padding: 24px;
       display: flex;

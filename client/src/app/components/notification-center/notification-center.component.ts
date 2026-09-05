@@ -274,6 +274,43 @@ interface Notification {
       color: var(--color-muted);
       line-height: 1.45;
     }
+
+    @media (max-width: 768px) {
+      .lookup-row {
+        flex-direction: column;
+      }
+
+      .lookup-row button {
+        width: 100%;
+      }
+
+      .notification-item-card {
+        padding: 12px;
+        gap: 10px;
+      }
+
+      .filter-tabs-row {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .notif-title-meta h4 {
+        font-size: 12px;
+      }
+
+      .notif-type-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+      }
+
+      .config-card {
+        padding: 14px;
+      }
+    }
   `]
 })
 export class NotificationCenterComponent implements OnInit {

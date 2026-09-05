@@ -264,6 +264,55 @@ import { ToastService } from '../../services/toast.service';
       font-family: monospace;
       color: var(--color-muted);
     }
+
+    @media (max-width: 768px) {
+      .detection-metrics-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .annotated-image-frame {
+        height: 240px;
+      }
+
+      .results-empty-card {
+        min-height: 280px;
+        padding: 24px;
+      }
+
+      .detect-results-panel {
+        min-height: auto;
+      }
+
+      .results-active-card {
+        padding: 16px;
+        gap: 14px;
+      }
+
+      .coord-item {
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .coord-bbox {
+        width: 100%;
+        font-size: 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .annotated-image-frame {
+        height: 200px;
+      }
+
+      .control-card {
+        padding: 14px;
+      }
+
+      .metric-val {
+        font-size: 18px;
+      }
+    }
   `]
 })
 export class DetectComponent implements OnInit {

@@ -350,22 +350,38 @@ import { OfflineService } from './services/offline.service';
         border-right: none;
         border-top: 0.5px solid rgba(0, 0, 0, 0.07);
         flex-direction: row;
-        padding: 0 16px;
-        justify-content: space-around;
+        padding: 0 8px;
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        gap: 0;
+      }
+
+      .sidebar::-webkit-scrollbar {
+        display: none;
       }
 
       .sidebar-top, .sidebar-bottom {
         flex-direction: row;
         width: auto;
-        gap: 8px;
+        gap: 2px;
+        flex-shrink: 0;
       }
 
       .logo-mark, .nav-divider {
         display: none;
       }
 
+      .nav-item {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+
       .nav-item .indicator {
-        left: 12px;
+        left: 10px;
         bottom: 0;
         top: auto;
         width: 20px;
@@ -379,9 +395,27 @@ import { OfflineService } from './services/offline.service';
 
       .main-container-layout {
         margin-left: 0;
-        padding-bottom: 60px;
+        padding-bottom: 64px;
       }
     }
+
+    @media (max-width: 480px) {
+      .sidebar {
+        height: 54px;
+        padding: 0 4px;
+      }
+
+      .nav-item {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+      }
+
+      .main-container-layout {
+        padding-bottom: 58px;
+      }
+    }
+
 
     .offline-banner {
       position: fixed;

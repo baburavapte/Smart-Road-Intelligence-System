@@ -870,6 +870,82 @@ interface CitizenReport {
       }
     }
 
+    @media (max-width: 768px) {
+      .bulk-toolbar {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+      }
+
+      .bulk-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .filter-actions-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .record-count {
+        margin-right: 0;
+      }
+
+      .pagination-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .pagination-controls {
+        flex-wrap: wrap;
+      }
+
+      .table-card {
+        border-radius: 12px;
+      }
+
+      .reports-table {
+        font-size: 11px;
+      }
+
+      .reports-table th,
+      .reports-table td {
+        padding: 8px 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .filter-bar {
+        padding: 12px;
+      }
+
+      .filter-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .col-span-2 {
+        grid-column: span 1;
+      }
+
+      .bulk-toolbar {
+        padding: 8px 12px;
+      }
+
+      .pagination-jump {
+        display: none;
+      }
+
+      .modal-card {
+        max-width: 100%;
+        margin: 0 8px;
+        padding: 16px;
+        border-radius: 16px;
+      }
+    }
+
+
     /* Modal Overlay */
     .modal-overlay {
       position: fixed;

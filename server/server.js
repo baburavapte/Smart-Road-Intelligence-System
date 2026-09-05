@@ -8,6 +8,10 @@
  */
 
 require('dotenv').config();
+
+const dns = require("dns");
+dns.setServers(["8.8.8.8"]);
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -31,11 +35,41 @@ const usersRoutes = require('./routes/users');
 const http = require('http');
 const { Server } = require('socket.io');
 
+// ══════════════════════════════════════════════
+// CORS & ORIGINS CONFIGURATION
+// ══════════════════════════════════════════════
+const allowedOrigins = [
+  'http://localhost:4200',
+  'http://localhost:4000',
+  'http://127.0.0.1:4200',
+  'http://127.0.0.1:4000',
+  'http://[::1]:4200',
+  'http://[::1]:4000'
+];
+
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL.split(',').forEach(url => {
+    const trimmed = url.trim();
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(',').forEach(url => {
+    const trimmed = url.trim();
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:4200', 'http://localhost:4000', 'http://127.0.0.1:4200', 'http://127.0.0.1:4000', 'http://[::1]:4200', 'http://[::1]:4000'],
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true
   }
@@ -72,7 +106,7 @@ io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.user.email} (${socket.user.role})`);
   socket.join(socket.user.email);
   socket.join(`role-${socket.user.role}`);
-  
+
   socket.on('disconnect', () => {
     console.log(`🔌 Client disconnected: ${socket.user.email}`);
   });
@@ -90,11 +124,11 @@ app.use(helmet());
 app.use(helmet.contentSecurityPolicy({
   directives: {
     defaultSrc: ["'self'"],
-    imgSrc: ["'self'", "data:", "blob:", "tile.openstreetmap.org", "*.tile.openstreetmap.org"],
+    imgSrc: ["'self'", "data:", "blob:", "tile.openstreetmap.org", "*.tile.openstreetmap.org", "*.basemaps.cartocdn.com", "raw.githubusercontent.com", "cdnjs.cloudflare.com", "upload.wikimedia.org"],
     scriptSrc: ["'self'"],
     styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
     fontSrc: ["'self'", "fonts.gstatic.com"],
-    connectSrc: ["'self'", "nominatim.openstreetmap.org", "router.project-osrm.org", "localhost:5001"]
+    connectSrc: ["'self'", "nominatim.openstreetmap.org", "router.project-osrm.org", "localhost:5001", "http://localhost:5001", "https://*"]
   }
 }));
 
@@ -103,9 +137,9 @@ app.use(cookieParser());
 
 // CORS — credentials enabled for httpOnly cookies
 app.use(cors({
-  origin: ['http://localhost:4200', 'http://localhost:4000', 'http://127.0.0.1:4200', 'http://127.0.0.1:4000', 'http://[::1]:4200', 'http://[::1]:4000'],
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
   credentials: true
 }));
 
@@ -163,43 +197,45 @@ app.use('/api/users', usersRoutes);
 // HEALTH CHECK
 // ══════════════════════════════════════════════
 app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        service: 'pothole-detection-api',
-        mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        timestamp: new Date().toISOString()
-    });
+  res.json({
+    status: 'healthy',
+    service: 'pothole-detection-api',
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ══════════════════════════════════════════════
 // ERROR HANDLING
 // ══════════════════════════════════════════════
 app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
-    if (err.name === 'MulterError') {
-        return res.status(400).json({ error: `Upload error: ${err.message}` });
-    }
-    res.status(500).json({ error: 'Internal server error' });
+  console.error('Unhandled error:', err);
+  if (err.name === 'MulterError') {
+    return res.status(400).json({ error: `Upload error: ${err.message}` });
+  }
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // ══════════════════════════════════════════════
 // START SERVER
 // ══════════════════════════════════════════════
-mongoose.connect(MONGO_URI)
-    .then(() => {
-        console.log('✅ Connected to MongoDB');
-        server.listen(PORT, () => {
-            console.log(`🚀 Express server running on http://localhost:${PORT}`);
-            console.log(`📡 Flask inference service expected at ${process.env.FLASK_URL || 'http://localhost:5001'}`);
-            console.log(`🔒 Security: Helmet, rate limiting, CORS enabled`);
-        });
-    })
-    .catch((err) => {
-        console.error('❌ MongoDB connection error:', err.message);
-        console.log('Starting server without MongoDB...');
-        server.listen(PORT, () => {
-            console.log(`🚀 Express server running on http://localhost:${PORT} (No DB)`);
-        });
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 10000
+})
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+    server.listen(PORT, () => {
+      console.log(`🚀 Express server running on http://localhost:${PORT}`);
+      console.log(`📡 Flask inference service expected at ${process.env.FLASK_URL || 'http://localhost:5001'}`);
+      console.log(`🔒 Security: Helmet, rate limiting, CORS enabled`);
     });
+  })
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.log('Starting server without MongoDB...');
+    server.listen(PORT, () => {
+      console.log(`🚀 Express server running on http://localhost:${PORT} (No DB)`);
+    });
+  });
 
 module.exports = app;

@@ -456,6 +456,26 @@ import * as L from 'leaflet';
       line-height: 1.4;
     }
 
+    @media (max-width: 480px) {
+      .map-card, .worst-roads-card, .timeline-card, .commitment-card {
+        padding: 14px;
+        gap: 12px;
+      }
+      .map-viewport-wrapper {
+        height: 260px;
+      }
+      .sla-commitments-list {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .compliance-metric {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+    }
+
     .share-toast {
       position: fixed;
       bottom: 24px;

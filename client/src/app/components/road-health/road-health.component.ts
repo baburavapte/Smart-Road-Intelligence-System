@@ -439,6 +439,26 @@ interface RoadHealth {
       font-size: 11px;
       font-weight: 700;
     }
+
+    @media (max-width: 480px) {
+      .circular-ring-large-card {
+        padding: 16px;
+      }
+
+      .zone-health-card {
+        padding: 14px;
+      }
+
+      .budget-input-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .input-symbol {
+        width: 100%;
+      }
+    }
   `]
 })
 export class RoadHealthComponent implements OnInit, AfterViewInit, OnDestroy {

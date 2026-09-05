@@ -238,11 +238,7 @@ import { ToastService } from '../../services/toast.service';
       <footer class="login-footer-text">
         <p>Vadodara Municipal Corporation — Smart City Initiative</p>
         <p class="version-tag">Powered by RoadSense AI v2.0</p>
-        <div style="margin-top: 16px;">
-          <a routerLink="/public" class="pill-btn ghost" style="display: inline-flex; align-items: center; gap: 8px;">
-            <i class="ti ti-world"></i> View Public Transparency Dashboard
-          </a>
-        </div>
+
       </footer>
     </div>
   `,
