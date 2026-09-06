@@ -15,13 +15,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy dependencies
-COPY requirements.txt .
+COPY inference-service/requirements.txt .
 
 # Install Python packages
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all project files
-COPY . .
+COPY inference-service/ .
 
 # Create required folders
 RUN mkdir -p uploads results
