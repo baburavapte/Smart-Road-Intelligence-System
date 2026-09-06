@@ -159,9 +159,11 @@ def detect():
         results = model.predict(
             source=original_path,
             conf=0.25,
+            imgsz=416,
+            device="cpu",
             save=False,
             verbose=False
-        )
+)
 
         result = results[0]
 
