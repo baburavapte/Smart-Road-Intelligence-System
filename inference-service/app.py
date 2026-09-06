@@ -7,6 +7,9 @@ import os
 import uuid
 from datetime import datetime
 
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 import cv2
 # pyrefly: ignore [missing-import]
 from flask import Flask, request, jsonify, send_file
