@@ -66,6 +66,8 @@ if (process.env.ALLOWED_ORIGINS) {
 }
 
 const app = express();
+// Render runs Express behind a reverse proxy
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -177,7 +179,7 @@ app.use('/api/', generalLimiter);
 // STATIC FILES
 // ══════════════════════════════════════════════
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use('/results', express.static(path.join(__dirname, 'results')));
 // ══════════════════════════════════════════════
 // API ROUTES
 // ══════════════════════════════════════════════
