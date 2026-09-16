@@ -289,7 +289,9 @@ router.post(
             );
 
             const client =
-                await Client.connect(HF_SPACE);
+                await Client.connect(HF_SPACE, {
+                    token: process.env.HF_TOKEN
+                });
 
             console.log(
                 'Connected to Hugging Face.'
