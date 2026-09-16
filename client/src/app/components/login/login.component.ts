@@ -590,18 +590,18 @@ export class LoginComponent implements OnInit {
 
   // Forms
   citizenForm: FormGroup = this.fb.group({
-    email: ['citizen@test.com', [Validators.required, Validators.email]],
-    password: ['citizen123', [Validators.required]]
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]]
   });
 
   officerForm: FormGroup = this.fb.group({
-    officerId: ['OFFICER123', [Validators.required]],
-    password: ['officer123', [Validators.required]]
+    officerId: ['', [Validators.required]],
+    password: ['', [Validators.required]]
   });
 
   adminForm: FormGroup = this.fb.group({
-    email: ['admin@smartcity.gov.in', [Validators.required, Validators.email]],
-    password: ['admin123', [Validators.required]]
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]]
   });
 
   registerForm: FormGroup = this.fb.group({
